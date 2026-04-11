@@ -905,15 +905,14 @@ function isLineInsideHunk(line, startLine, endLine) {
 // src/diff/openDeployedDiff.ts
 var vscode8 = __toESM(require("vscode"));
 async function openDeployedDiff(localFileUri, remoteDiffDocumentProvider) {
-  const target = resolveDeploymentTarget(localFileUri);
-  const remoteMetadata = await remoteDiffDocumentProvider.preload(localFileUri);
+  await remoteDiffDocumentProvider.preload(localFileUri);
   const localDocument = await vscode8.workspace.openTextDocument(localFileUri);
   const remoteDocument = await vscode8.workspace.openTextDocument(createRemoteDocumentUri(localFileUri));
+  const fileName = localFileUri.path.split("/").pop() ?? localDocument.fileName;
+  const title = `Local: ${fileName} \u2194 Remote: ${fileName}`;
   if (remoteDocument.languageId !== localDocument.languageId) {
     await vscode8.languages.setTextDocumentLanguage(remoteDocument, localDocument.languageId);
   }
-  const metadataSuffix = remoteMetadata.modifiedAt ? ` \u2022 ${remoteMetadata.modifiedAt.toISOString()}` : ` \u2022 ${remoteMetadata.size} bytes`;
-  const title = `${target.relativePath} \u2194 ${target.mapping.name}${metadataSuffix}`;
   await vscode8.commands.executeCommand("vscode.diff", localFileUri, remoteDocument.uri, title, {
     preview: false
   });
