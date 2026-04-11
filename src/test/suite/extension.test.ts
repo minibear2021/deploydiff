@@ -3,6 +3,8 @@ import * as path from 'node:path';
 import * as vscode from 'vscode';
 import { parseDeploymentMapping } from '../../config/deploymentConfiguration';
 import { DeploymentMapping, resolveMappingForFile, toRemoteFilePath } from '../../deployment/mapping';
+import { DEPLOYDIFF_SFTP_PASSWORD_SECRET_KEY, getSftpConnectionOptions } from '../../remote/sftpConfiguration';
+import { DeployDiffExtensionApi } from '../../extension';
 
 function createWorkspaceFolder(fsPath: string): vscode.WorkspaceFolder {
   return {
@@ -69,5 +71,35 @@ suite('Extension bootstrap', () => {
     assert.ok(commands.includes('deploydiff.compareWithDeployedVersion'));
     assert.ok(commands.includes('deploydiff.uploadToRemote'));
     assert.ok(commands.includes('deploydiff.downloadFromRemote'));
+    assert.ok(commands.includes('deploydiff.setSftpPassword'));
+    assert.ok(commands.includes('deploydiff.clearSftpPassword'));
+  });
+});
+
+suite('SFTP configuration', () => {
+  test('builds password-based options from workspace config and secrets', async () => {
+    const extension = vscode.extensions.getExtension('chen.deploydiff');
+    assert.ok(extension);
+
+    const api = (await extension.activate()) as DeployDiffExtensionApi;
+
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    assert.ok(workspaceFolder);
+
+    const configuration = vscode.workspace.getConfiguration('deploydiff', workspaceFolder.uri);
+    await configuration.update('sftp.host', 'example.com', vscode.ConfigurationTarget.WorkspaceFolder);
+    await configuration.update('sftp.port', 2222, vscode.ConfigurationTarget.WorkspaceFolder);
+    await configuration.update('sftp.username', 'deploy', vscode.ConfigurationTarget.WorkspaceFolder);
+    await configuration.update('sftp.privateKeyPath', '', vscode.ConfigurationTarget.WorkspaceFolder);
+    await api.secrets.store(DEPLOYDIFF_SFTP_PASSWORD_SECRET_KEY, 'secret');
+
+    const options = await getSftpConnectionOptions(workspaceFolder, api.secrets);
+
+    assert.equal(options.host, 'example.com');
+    assert.equal(options.port, 2222);
+    assert.equal(options.username, 'deploy');
+    assert.equal(options.password, 'secret');
+
+    await api.secrets.delete(DEPLOYDIFF_SFTP_PASSWORD_SECRET_KEY);
   });
 });

@@ -1,0 +1,6 @@
+{
+    "deploydiff.sftp.host": "example.com",
+    "deploydiff.sftp.port": 2222,
+    "deploydiff.sftp.username": "deploy",
+    "deploydiff.sftp.privateKeyPath": ""
+}

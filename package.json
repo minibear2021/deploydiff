@@ -28,6 +28,16 @@
         "command": "deploydiff.downloadFromRemote",
         "title": "Download from Remote",
         "category": "DeployDiff"
+      },
+      {
+        "command": "deploydiff.setSftpPassword",
+        "title": "Set SFTP Password",
+        "category": "DeployDiff"
+      },
+      {
+        "command": "deploydiff.clearSftpPassword",
+        "title": "Clear SFTP Password",
+        "category": "DeployDiff"
       }
     ],
     "menus": {
@@ -62,19 +72,23 @@
         "deploydiff.transport": {
           "type": "string",
           "enum": [
-            "mock"
+            "mock",
+            "sftp"
           ],
           "default": "mock",
+          "scope": "resource",
           "description": "Remote transport implementation used by DeployDiff."
         },
         "deploydiff.confirmSync": {
           "type": "boolean",
           "default": true,
+          "scope": "resource",
           "description": "Ask for confirmation before overwriting the local or remote copy during sync."
         },
         "deploydiff.mappings": {
           "type": "array",
           "default": [],
+          "scope": "resource",
           "markdownDescription": "Maps local workspace paths to deployed remote roots.",
           "items": {
             "type": "object",
@@ -102,7 +116,32 @@
         "deploydiff.mockRemoteFiles": {
           "type": "object",
           "default": {},
+          "scope": "resource",
           "markdownDescription": "Mock remote file contents keyed by deployed absolute path. Useful while transport integrations are not implemented."
+        },
+        "deploydiff.sftp.host": {
+          "type": "string",
+          "default": "",
+          "scope": "resource",
+          "description": "SFTP host name or IP address."
+        },
+        "deploydiff.sftp.port": {
+          "type": "number",
+          "default": 22,
+          "scope": "resource",
+          "description": "SFTP port."
+        },
+        "deploydiff.sftp.username": {
+          "type": "string",
+          "default": "",
+          "scope": "resource",
+          "description": "SFTP username."
+        },
+        "deploydiff.sftp.privateKeyPath": {
+          "type": "string",
+          "default": "",
+          "scope": "resource",
+          "description": "Optional absolute path to a private key file for SFTP authentication."
         }
       }
     }
@@ -115,9 +154,13 @@
     "test": "node ./out/test/runTest.js",
     "package": "vsce package"
   },
+  "dependencies": {
+    "ssh2-sftp-client": "^12.1.1"
+  },
   "devDependencies": {
     "@types/mocha": "^10.0.10",
     "@types/node": "^24.0.0",
+    "@types/ssh2-sftp-client": "^9.0.6",
     "@types/vscode": "^1.100.0",
     "@typescript-eslint/eslint-plugin": "^8.30.1",
     "@typescript-eslint/parser": "^8.30.1",

@@ -5,13 +5,14 @@ import { createRemoteFileProvider } from '../remote/RemoteFileProvider';
 import { registerDeployCommand } from './runDeployCommand';
 
 export function registerUploadToRemoteCommand(
+  context: vscode.ExtensionContext
 ): vscode.Disposable {
   return registerDeployCommand('deploydiff.uploadToRemote', async (resource?: vscode.Uri) => {
     const localFileUri = getOrResolveResourceUri(resource);
     const target = resolveDeploymentTarget(localFileUri);
     const configuration = vscode.workspace.getConfiguration('deploydiff', target.workspaceFolder.uri);
     const confirmSync = configuration.get<boolean>('confirmSync', true);
-    const provider = createRemoteFileProvider(target.workspaceFolder);
+    const provider = await createRemoteFileProvider(target.workspaceFolder, context.secrets);
 
     if (confirmSync) {
       const answer = await vscode.window.showWarningMessage(

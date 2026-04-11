@@ -3,10 +3,11 @@ import { resolveDeploymentTarget } from '../config/deploymentConfiguration';
 import { createRemoteFileProvider } from '../remote/RemoteFileProvider';
 
 export async function openDeployedDiff(
-  localFileUri: vscode.Uri
+  localFileUri: vscode.Uri,
+  secrets: vscode.SecretStorage
 ): Promise<void> {
   const target = resolveDeploymentTarget(localFileUri);
-  const provider = createRemoteFileProvider(target.workspaceFolder);
+  const provider = await createRemoteFileProvider(target.workspaceFolder, secrets);
   const remoteContent = await provider.readFile(target.remoteFilePath);
   const localDocument = await vscode.workspace.openTextDocument(localFileUri);
   const remoteDocument = await vscode.workspace.openTextDocument({
