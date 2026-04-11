@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
 import SftpClient from 'ssh2-sftp-client';
+import { DeployDiffError } from '../errors/DeployDiffError';
 
 export const DEPLOYDIFF_SFTP_PASSWORD_SECRET_KEY = 'deploydiff.sftp.password';
 
@@ -19,11 +20,24 @@ export async function getSftpConnectionOptions(
   const password = await secrets.get(DEPLOYDIFF_SFTP_PASSWORD_SECRET_KEY);
 
   if (!host) {
-    throw new Error('DeployDiff SFTP host is not configured. Set deploydiff.sftp.host first.');
+    throw new DeployDiffError('DeployDiff SFTP host is not configured. Add deploydiff.sftp.host in workspace settings.', [
+      {
+        label: 'Open Workspace Settings',
+        commandId: 'workbench.action.openWorkspaceSettingsFile'
+      }
+    ]);
   }
 
   if (!username) {
-    throw new Error('DeployDiff SFTP username is not configured. Set deploydiff.sftp.username first.');
+    throw new DeployDiffError(
+      'DeployDiff SFTP username is not configured. Add deploydiff.sftp.username in workspace settings.',
+      [
+        {
+          label: 'Open Workspace Settings',
+          commandId: 'workbench.action.openWorkspaceSettingsFile'
+        }
+      ]
+    );
   }
 
   if (!Number.isInteger(port) || port <= 0) {
@@ -55,7 +69,17 @@ export async function getSftpConnectionOptions(
     };
   }
 
-  throw new Error(
-    'DeployDiff SFTP authentication is not configured. Set a password with the DeployDiff command or configure deploydiff.sftp.privateKeyPath.'
+  throw new DeployDiffError(
+    'DeployDiff SFTP authentication is not configured. Set a password with DeployDiff or configure deploydiff.sftp.privateKeyPath.',
+    [
+      {
+        label: 'Set SFTP Password',
+        commandId: 'deploydiff.setSftpPassword'
+      },
+      {
+        label: 'Open Workspace Settings',
+        commandId: 'workbench.action.openWorkspaceSettingsFile'
+      }
+    ]
   );
 }

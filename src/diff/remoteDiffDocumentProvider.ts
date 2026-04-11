@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { resolveDeploymentTarget } from '../config/deploymentConfiguration';
+import { DeployDiffError } from '../errors/DeployDiffError';
 import { createRemoteFileProvider, RemoteFileMetadata } from '../remote/RemoteFileProvider';
 
 export const DEPLOYDIFF_REMOTE_DOCUMENT_SCHEME = 'deploydiff-remote';
@@ -72,7 +73,16 @@ export class RemoteDiffDocumentProvider implements vscode.TextDocumentContentPro
     const provider = await createRemoteFileProvider(target.workspaceFolder, this.secrets);
 
     if (!(await provider.exists(target.remoteFilePath))) {
-      throw new Error(`No deployed file exists at ${target.remoteFilePath}. Upload the local file first to create it.`);
+      throw new DeployDiffError(
+        `No deployed file exists at ${target.remoteFilePath}. Upload the local file first to create it.`,
+        [
+          {
+            label: 'Upload to Remote',
+            commandId: 'deploydiff.uploadToRemote',
+            arguments: [localFileUri]
+          }
+        ]
+      );
     }
 
     const metadata = await provider.stat(target.remoteFilePath);

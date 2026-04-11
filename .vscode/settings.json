@@ -3,6 +3,15 @@
     "deploydiff.sftp.port": 2222,
     "deploydiff.sftp.username": "deploy",
     "deploydiff.sftp.privateKeyPath": "",
+    "deploydiff.mappings": [
+        {
+            "name": "deploydiff",
+            "localPath": "src",
+            "remotePath": "/tmp/src",
+        }
+    ],
+    "deploydiff.confirmSync": true,
+    "deploydiff.transport": "sftp",
     "deploydiff.mockRemoteFiles": {
         "/var/www/app/src/example.ts": "remote-content"
     }

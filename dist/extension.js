@@ -82,6 +82,18 @@ function joinRemotePath(remoteRoot, relativePath) {
 // src/diff/remoteDiffDocumentProvider.ts
 var vscode4 = __toESM(require("vscode"));
 
+// src/errors/DeployDiffError.ts
+var DeployDiffError = class extends Error {
+  constructor(message, actions = []) {
+    super(message);
+    this.actions = actions;
+    this.name = "DeployDiffError";
+  }
+};
+function isDeployDiffError(error) {
+  return error instanceof DeployDiffError;
+}
+
 // src/remote/RemoteFileProvider.ts
 var vscode3 = __toESM(require("vscode"));
 
@@ -206,10 +218,23 @@ async function getSftpConnectionOptions(workspaceFolder, secrets) {
   const privateKeyPath = configuration.get("sftp.privateKeyPath", "").trim();
   const password = await secrets.get(DEPLOYDIFF_SFTP_PASSWORD_SECRET_KEY);
   if (!host) {
-    throw new Error("DeployDiff SFTP host is not configured. Set deploydiff.sftp.host first.");
+    throw new DeployDiffError("DeployDiff SFTP host is not configured. Add deploydiff.sftp.host in workspace settings.", [
+      {
+        label: "Open Workspace Settings",
+        commandId: "workbench.action.openWorkspaceSettingsFile"
+      }
+    ]);
   }
   if (!username) {
-    throw new Error("DeployDiff SFTP username is not configured. Set deploydiff.sftp.username first.");
+    throw new DeployDiffError(
+      "DeployDiff SFTP username is not configured. Add deploydiff.sftp.username in workspace settings.",
+      [
+        {
+          label: "Open Workspace Settings",
+          commandId: "workbench.action.openWorkspaceSettingsFile"
+        }
+      ]
+    );
   }
   if (!Number.isInteger(port) || port <= 0) {
     throw new Error("DeployDiff SFTP port must be a positive integer.");
@@ -233,8 +258,18 @@ async function getSftpConnectionOptions(workspaceFolder, secrets) {
       password
     };
   }
-  throw new Error(
-    "DeployDiff SFTP authentication is not configured. Set a password with the DeployDiff command or configure deploydiff.sftp.privateKeyPath."
+  throw new DeployDiffError(
+    "DeployDiff SFTP authentication is not configured. Set a password with DeployDiff or configure deploydiff.sftp.privateKeyPath.",
+    [
+      {
+        label: "Set SFTP Password",
+        commandId: "deploydiff.setSftpPassword"
+      },
+      {
+        label: "Open Workspace Settings",
+        commandId: "workbench.action.openWorkspaceSettingsFile"
+      }
+    ]
   );
 }
 
@@ -310,7 +345,16 @@ var RemoteDiffDocumentProvider = class {
     const target = resolveDeploymentTarget(localFileUri);
     const provider = await createRemoteFileProvider(target.workspaceFolder, this.secrets);
     if (!await provider.exists(target.remoteFilePath)) {
-      throw new Error(`No deployed file exists at ${target.remoteFilePath}. Upload the local file first to create it.`);
+      throw new DeployDiffError(
+        `No deployed file exists at ${target.remoteFilePath}. Upload the local file first to create it.`,
+        [
+          {
+            label: "Upload to Remote",
+            commandId: "deploydiff.uploadToRemote",
+            arguments: [localFileUri]
+          }
+        ]
+      );
     }
     const metadata = await provider.stat(target.remoteFilePath);
     const content = await provider.readFile(target.remoteFilePath);
@@ -399,6 +443,15 @@ function registerDeployCommand(commandId, handler) {
       await handler(resource);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown DeployDiff error.";
+      if (isDeployDiffError(error) && error.actions.length > 0) {
+        const actionLabels = error.actions.map((action) => action.label);
+        const selectedActionLabel = await vscode7.window.showErrorMessage(message, ...actionLabels);
+        const selectedAction = error.actions.find((action) => action.label === selectedActionLabel);
+        if (selectedAction) {
+          await vscode7.commands.executeCommand(selectedAction.commandId, ...selectedAction.arguments ?? []);
+        }
+        return;
+      }
       await vscode7.window.showErrorMessage(message);
     }
   });

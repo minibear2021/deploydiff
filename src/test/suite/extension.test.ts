@@ -148,7 +148,7 @@ suite('Mock remote provider', () => {
 
 suite('Extension bootstrap', () => {
   test('commands are registered', async () => {
-    const extension = vscode.extensions.getExtension('chen.deploydiff');
+    const extension = vscode.extensions.getExtension('minibear2021.deploydiff');
     assert.ok(extension);
 
     await extension.activate();
@@ -166,7 +166,7 @@ suite('Extension bootstrap', () => {
 
 suite('SFTP configuration', () => {
   test('builds password-based options from workspace config and secrets', async () => {
-    const extension = vscode.extensions.getExtension('chen.deploydiff');
+    const extension = vscode.extensions.getExtension('minibear2021.deploydiff');
     assert.ok(extension);
 
     const api = (await extension.activate()) as DeployDiffExtensionApi;
