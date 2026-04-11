@@ -28,7 +28,7 @@
     "sync",
     "compare"
   ],
-  "main": "./out/extension.js",
+  "main": "./dist/extension.js",
   "contributes": {
     "commands": [
       {
@@ -211,7 +211,8 @@
     }
   },
   "scripts": {
-    "build": "tsc -p ./",
+    "build": "tsc -p ./ && npm run bundle",
+    "bundle": "node ./scripts/bundle.mjs",
     "watch": "tsc -watch -p ./",
     "lint": "eslint src --ext ts",
     "pretest": "npm run build && npm run lint",
@@ -230,6 +231,7 @@
     "@typescript-eslint/parser": "^8.30.1",
     "@vscode/test-electron": "^2.5.2",
     "@vscode/vsce": "^3.6.0",
+    "esbuild": "^0.25.3",
     "eslint": "^9.25.1",
     "glob": "^11.0.2",
     "globals": "^16.0.0",

@@ -21,8 +21,8 @@ Prepare DeployDiff for a first Visual Studio Code Marketplace release with a pac
 - [x] Validate local packaging with `vsce package`.
   Notes: completed successfully and produced `deploydiff-0.0.1.vsix`.
 
-- [ ] Reduce package size by bundling or excluding more files.
-  Notes: `vsce` packaged successfully but warned that the extension includes 503 files and should be bundled for better performance and a smaller VSIX.
+- [x] Reduce package size by bundling or excluding more files.
+  Notes: switched the published entrypoint to a bundled `dist/extension.js`, excluded repository-only files from the VSIX, and reduced the package from 503 files to 487 files. Packaging now completes without the earlier bundling warning.
 
 - [ ] Add Marketplace branding assets.
   Notes: an extension icon and optional screenshots are still missing. This is strongly recommended for a public listing but requires design assets.

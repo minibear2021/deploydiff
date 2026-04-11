@@ -1,5 +1,9 @@
+.gitignore
+docs/**
+scripts/**
 src/**
 test/**
+out/**
 out/test/**
 .vscode/**
 .vscode-test/**
