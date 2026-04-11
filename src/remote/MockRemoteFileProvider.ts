@@ -1,0 +1,34 @@
+import * as vscode from 'vscode';
+import { RemoteFileProvider } from './RemoteFileProvider';
+
+type RemoteFileMap = Record<string, string>;
+
+export class MockRemoteFileProvider implements RemoteFileProvider {
+  public constructor(private readonly workspaceFolder: vscode.WorkspaceFolder) {}
+
+  public readFile(remotePath: string): Promise<string> {
+    const files = this.getRemoteFiles();
+    const content = files[remotePath];
+    if (content === undefined) {
+      return Promise.reject(new Error(
+        `Mock remote file not found for ${remotePath}. Add deploydiff.mockRemoteFiles in workspace settings.`
+      ));
+    }
+
+    return Promise.resolve(content);
+  }
+
+  public async writeFile(remotePath: string, content: string): Promise<void> {
+    const files = this.getRemoteFiles();
+    files[remotePath] = content;
+    const configuration = vscode.workspace.getConfiguration('deploydiff', this.workspaceFolder.uri);
+    await configuration.update('mockRemoteFiles', files, vscode.ConfigurationTarget.WorkspaceFolder);
+  }
+
+  private getRemoteFiles(): RemoteFileMap {
+    const configuration = vscode.workspace.getConfiguration('deploydiff', this.workspaceFolder.uri);
+    return {
+      ...configuration.get<RemoteFileMap>('mockRemoteFiles', {})
+    };
+  }
+}

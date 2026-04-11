@@ -1,0 +1,132 @@
+{
+  "name": "deploydiff",
+  "displayName": "DeployDiff",
+  "description": "Compare local files with deployed remote versions and sync changes in either direction.",
+  "version": "0.0.1",
+  "publisher": "chen",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "deploydiff.compareWithDeployedVersion",
+        "title": "Compare with Deployed Version",
+        "category": "DeployDiff"
+      },
+      {
+        "command": "deploydiff.uploadToRemote",
+        "title": "Upload to Remote",
+        "category": "DeployDiff"
+      },
+      {
+        "command": "deploydiff.downloadFromRemote",
+        "title": "Download from Remote",
+        "category": "DeployDiff"
+      }
+    ],
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "deploydiff.compareWithDeployedVersion",
+          "when": "resourceScheme == file",
+          "group": "navigation@20"
+        },
+        {
+          "command": "deploydiff.uploadToRemote",
+          "when": "resourceScheme == file",
+          "group": "navigation@21"
+        },
+        {
+          "command": "deploydiff.downloadFromRemote",
+          "when": "resourceScheme == file",
+          "group": "navigation@22"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "deploydiff.compareWithDeployedVersion",
+          "when": "resourceScheme == file",
+          "group": "navigation@20"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "DeployDiff",
+      "properties": {
+        "deploydiff.transport": {
+          "type": "string",
+          "enum": [
+            "mock"
+          ],
+          "default": "mock",
+          "description": "Remote transport implementation used by DeployDiff."
+        },
+        "deploydiff.confirmSync": {
+          "type": "boolean",
+          "default": true,
+          "description": "Ask for confirmation before overwriting the local or remote copy during sync."
+        },
+        "deploydiff.mappings": {
+          "type": "array",
+          "default": [],
+          "markdownDescription": "Maps local workspace paths to deployed remote roots.",
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "localPath",
+              "remotePath"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Friendly mapping name."
+              },
+              "localPath": {
+                "type": "string",
+                "description": "Workspace-relative local directory root, for example src or packages/app/src."
+              },
+              "remotePath": {
+                "type": "string",
+                "description": "Absolute POSIX-style deployed directory, for example /var/www/app/src."
+              }
+            }
+          }
+        },
+        "deploydiff.mockRemoteFiles": {
+          "type": "object",
+          "default": {},
+          "markdownDescription": "Mock remote file contents keyed by deployed absolute path. Useful while transport integrations are not implemented."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint src --ext ts",
+    "pretest": "npm run build && npm run lint",
+    "test": "node ./out/test/runTest.js",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^24.0.0",
+    "@types/vscode": "^1.100.0",
+    "@typescript-eslint/eslint-plugin": "^8.30.1",
+    "@typescript-eslint/parser": "^8.30.1",
+    "@vscode/test-electron": "^2.5.2",
+    "@vscode/vsce": "^3.6.0",
+    "eslint": "^9.25.1",
+    "glob": "^11.0.2",
+    "globals": "^16.0.0",
+    "mocha": "^11.1.0",
+    "typescript": "^5.8.3"
+  }
+}
