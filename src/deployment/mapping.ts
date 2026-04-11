@@ -35,11 +35,7 @@ export function resolveMappingForFile(
   }
 
   const relativePath = path.relative(matchingMapping.localRoot, normalizedFilePath);
-  if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
-    throw new Error(`The selected file is outside the mapping root ${matchingMapping.localRoot}.`);
-  }
-
-  const remoteFilePath = joinRemotePath(matchingMapping.remoteRoot, relativePath);
+  const remoteFilePath = toRemoteFilePath(matchingMapping, normalizedFilePath);
 
   return {
     workspaceFolder,
@@ -48,6 +44,15 @@ export function resolveMappingForFile(
     relativePath,
     remoteFilePath
   };
+}
+
+export function toRemoteFilePath(mapping: DeploymentMapping, localFilePath: string): string {
+  const relativePath = path.relative(mapping.localRoot, path.normalize(localFilePath));
+  if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
+    throw new Error(`The selected file is outside the mapping root ${mapping.localRoot}.`);
+  }
+
+  return joinRemotePath(mapping.remoteRoot, relativePath);
 }
 
 function ensureTrailingSeparator(inputPath: string): string {

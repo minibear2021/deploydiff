@@ -12,6 +12,39 @@ type RawMapping = {
   remotePath: string;
 };
 
+export function parseDeploymentMapping(
+  workspaceFolder: vscode.WorkspaceFolder,
+  mapping: RawMapping,
+  index: number
+): DeploymentMapping {
+  const name = mapping.name?.trim();
+  const localPath = mapping.localPath?.trim();
+  const remotePath = mapping.remotePath?.trim();
+  const label = name || `mapping #${index + 1}`;
+
+  if (!name) {
+    throw new Error(`DeployDiff ${label} must define a non-empty name.`);
+  }
+
+  if (!localPath) {
+    throw new Error(`DeployDiff ${label} must define a non-empty localPath.`);
+  }
+
+  if (!remotePath) {
+    throw new Error(`DeployDiff ${label} must define a non-empty remotePath.`);
+  }
+
+  if (!remotePath.startsWith('/')) {
+    throw new Error(`DeployDiff ${label} remotePath must be an absolute POSIX path.`);
+  }
+
+  return {
+    name,
+    localRoot: path.resolve(workspaceFolder.uri.fsPath, localPath),
+    remoteRoot: remotePath.replace(/\/+$/, '') || '/'
+  };
+}
+
 export function getOrResolveResourceUri(resource?: vscode.Uri): vscode.Uri {
   if (resource?.scheme === 'file') {
     return resource;
@@ -29,11 +62,7 @@ export function getDeploymentMappings(workspaceFolder: vscode.WorkspaceFolder): 
   const configuration = vscode.workspace.getConfiguration('deploydiff', workspaceFolder.uri);
   const mappings = configuration.get<RawMapping[]>('mappings', []);
 
-  return mappings.map((mapping) => ({
-    name: mapping.name,
-    localRoot: path.resolve(workspaceFolder.uri.fsPath, mapping.localPath),
-    remoteRoot: mapping.remotePath
-  }));
+  return mappings.map((mapping, index) => parseDeploymentMapping(workspaceFolder, mapping, index));
 }
 
 export function resolveDeploymentTarget(localFileUri: vscode.Uri): ResolvedDeploymentTarget {

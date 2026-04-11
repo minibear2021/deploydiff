@@ -2,10 +2,11 @@ import * as vscode from 'vscode';
 import { writeFile } from 'node:fs/promises';
 import { getOrResolveResourceUri, resolveDeploymentTarget } from '../config/deploymentConfiguration';
 import { createRemoteFileProvider } from '../remote/RemoteFileProvider';
+import { registerDeployCommand } from './runDeployCommand';
 
 export function registerDownloadFromRemoteCommand(
 ): vscode.Disposable {
-  return vscode.commands.registerCommand('deploydiff.downloadFromRemote', async (resource?: vscode.Uri) => {
+  return registerDeployCommand('deploydiff.downloadFromRemote', async (resource?: vscode.Uri) => {
     const localFileUri = getOrResolveResourceUri(resource);
     const target = resolveDeploymentTarget(localFileUri);
     const configuration = vscode.workspace.getConfiguration('deploydiff', target.workspaceFolder.uri);
