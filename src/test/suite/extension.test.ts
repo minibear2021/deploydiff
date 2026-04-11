@@ -3,6 +3,12 @@ import * as path from 'node:path';
 import * as vscode from 'vscode';
 import { parseDeploymentMapping } from '../../config/deploymentConfiguration';
 import { DeploymentMapping, resolveMappingForFile, toRemoteFilePath } from '../../deployment/mapping';
+import {
+  createRemoteDocumentUri,
+  DEPLOYDIFF_REMOTE_DOCUMENT_SCHEME,
+  getLocalFileUriFromRemoteDocumentUri,
+  isRemoteDocumentUri
+} from '../../diff/remoteDiffDocumentProvider';
 import { DEPLOYDIFF_SFTP_PASSWORD_SECRET_KEY, getSftpConnectionOptions } from '../../remote/sftpConfiguration';
 import { DeployDiffExtensionApi } from '../../extension';
 
@@ -56,6 +62,17 @@ suite('Deployment mapping', () => {
       () => parseDeploymentMapping(workspaceFolder, { name: 'bad', localPath: 'src', remotePath: 'srv/app' }, 0),
       /absolute POSIX path/
     );
+  });
+});
+
+suite('Remote diff document URI', () => {
+  test('round-trips the local file URI', () => {
+    const localUri = vscode.Uri.file('/workspace/app/src/example.ts');
+    const remoteUri = createRemoteDocumentUri(localUri);
+
+    assert.equal(remoteUri.scheme, DEPLOYDIFF_REMOTE_DOCUMENT_SCHEME);
+    assert.equal(isRemoteDocumentUri(remoteUri), true);
+    assert.equal(getLocalFileUriFromRemoteDocumentUri(remoteUri).toString(), localUri.toString());
   });
 });
 

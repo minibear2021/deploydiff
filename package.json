@@ -61,8 +61,35 @@
       "editor/context": [
         {
           "command": "deploydiff.compareWithDeployedVersion",
-          "when": "resourceScheme == file",
+          "when": "resourceScheme == file || resourceScheme == deploydiff-remote",
           "group": "navigation@20"
+        },
+        {
+          "command": "deploydiff.uploadToRemote",
+          "when": "resourceScheme == file || resourceScheme == deploydiff-remote",
+          "group": "navigation@21"
+        },
+        {
+          "command": "deploydiff.downloadFromRemote",
+          "when": "resourceScheme == file || resourceScheme == deploydiff-remote",
+          "group": "navigation@22"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "deploydiff.compareWithDeployedVersion",
+          "when": "resourceScheme == file || resourceScheme == deploydiff-remote",
+          "group": "navigation@20"
+        },
+        {
+          "command": "deploydiff.uploadToRemote",
+          "when": "resourceScheme == file || resourceScheme == deploydiff-remote",
+          "group": "navigation@21"
+        },
+        {
+          "command": "deploydiff.downloadFromRemote",
+          "when": "resourceScheme == file || resourceScheme == deploydiff-remote",
+          "group": "navigation@22"
         }
       ]
     },

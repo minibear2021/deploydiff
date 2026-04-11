@@ -6,6 +6,10 @@ import {
   registerSetSftpPasswordCommand
 } from './commands/manageSftpPassword';
 import { registerUploadToRemoteCommand } from './commands/uploadToRemote';
+import {
+  DEPLOYDIFF_REMOTE_DOCUMENT_SCHEME,
+  RemoteDiffDocumentProvider
+} from './diff/remoteDiffDocumentProvider';
 
 export type DeployDiffExtensionApi = {
   secrets: vscode.SecretStorage;
@@ -13,7 +17,11 @@ export type DeployDiffExtensionApi = {
 
 export function activate(context: vscode.ExtensionContext): DeployDiffExtensionApi {
   context.subscriptions.push(
-    registerCompareWithDeployedCommand(context),
+    vscode.workspace.registerTextDocumentContentProvider(
+      DEPLOYDIFF_REMOTE_DOCUMENT_SCHEME,
+      new RemoteDiffDocumentProvider(context.secrets)
+    ),
+    registerCompareWithDeployedCommand(),
     registerUploadToRemoteCommand(context),
     registerDownloadFromRemoteCommand(context),
     registerSetSftpPasswordCommand(context),

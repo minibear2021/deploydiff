@@ -5,6 +5,7 @@ import {
   ResolvedDeploymentTarget,
   resolveMappingForFile
 } from '../deployment/mapping';
+import { getLocalFileUriFromRemoteDocumentUri, isRemoteDocumentUri } from '../diff/remoteDiffDocumentProvider';
 
 type RawMapping = {
   name: string;
@@ -50,9 +51,17 @@ export function getOrResolveResourceUri(resource?: vscode.Uri): vscode.Uri {
     return resource;
   }
 
+  if (resource && isRemoteDocumentUri(resource)) {
+    return getLocalFileUriFromRemoteDocumentUri(resource);
+  }
+
   const activeUri = vscode.window.activeTextEditor?.document.uri;
   if (activeUri?.scheme === 'file') {
     return activeUri;
+  }
+
+  if (activeUri && isRemoteDocumentUri(activeUri)) {
+    return getLocalFileUriFromRemoteDocumentUri(activeUri);
   }
 
   throw new Error('Select a local file in the explorer or open one in the editor first.');
