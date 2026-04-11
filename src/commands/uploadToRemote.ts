@@ -1,11 +1,13 @@
 import * as vscode from 'vscode';
 import { readFile } from 'node:fs/promises';
 import { getOrResolveResourceUri, resolveDeploymentTarget } from '../config/deploymentConfiguration';
+import { RemoteDiffDocumentProvider } from '../diff/remoteDiffDocumentProvider';
 import { createRemoteFileProvider } from '../remote/RemoteFileProvider';
 import { registerDeployCommand } from './runDeployCommand';
 
 export function registerUploadToRemoteCommand(
-  context: vscode.ExtensionContext
+  context: vscode.ExtensionContext,
+  remoteDiffDocumentProvider: RemoteDiffDocumentProvider
 ): vscode.Disposable {
   return registerDeployCommand('deploydiff.uploadToRemote', async (resource?: vscode.Uri) => {
     const localFileUri = getOrResolveResourceUri(resource);
@@ -27,6 +29,7 @@ export function registerUploadToRemoteCommand(
 
     const content = await readFile(localFileUri.fsPath, 'utf8');
     await provider.writeFile(target.remoteFilePath, content);
+    remoteDiffDocumentProvider.refresh(localFileUri);
     await vscode.window.showInformationMessage(`Uploaded ${target.relativePath} to ${target.remoteFilePath}.`);
   });
 }

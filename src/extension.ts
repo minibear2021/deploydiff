@@ -16,14 +16,16 @@ export type DeployDiffExtensionApi = {
 };
 
 export function activate(context: vscode.ExtensionContext): DeployDiffExtensionApi {
+  const remoteDiffDocumentProvider = new RemoteDiffDocumentProvider(context.secrets);
+
   context.subscriptions.push(
     vscode.workspace.registerTextDocumentContentProvider(
       DEPLOYDIFF_REMOTE_DOCUMENT_SCHEME,
-      new RemoteDiffDocumentProvider(context.secrets)
+      remoteDiffDocumentProvider
     ),
     registerCompareWithDeployedCommand(),
-    registerUploadToRemoteCommand(context),
-    registerDownloadFromRemoteCommand(context),
+    registerUploadToRemoteCommand(context, remoteDiffDocumentProvider),
+    registerDownloadFromRemoteCommand(context, remoteDiffDocumentProvider),
     registerSetSftpPasswordCommand(context),
     registerClearSftpPasswordCommand(context)
   );

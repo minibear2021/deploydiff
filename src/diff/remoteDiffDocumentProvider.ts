@@ -26,12 +26,24 @@ export function getLocalFileUriFromRemoteDocumentUri(remoteUri: vscode.Uri): vsc
 }
 
 export class RemoteDiffDocumentProvider implements vscode.TextDocumentContentProvider {
+  private readonly didChangeEmitter = new vscode.EventEmitter<vscode.Uri>();
+
   public constructor(private readonly secrets: vscode.SecretStorage) {}
+
+  public readonly onDidChange = this.didChangeEmitter.event;
 
   public async provideTextDocumentContent(uri: vscode.Uri): Promise<string> {
     const localFileUri = getLocalFileUriFromRemoteDocumentUri(uri);
     const target = resolveDeploymentTarget(localFileUri);
     const provider = await createRemoteFileProvider(target.workspaceFolder, this.secrets);
     return provider.readFile(target.remoteFilePath);
+  }
+
+  public refresh(localFileUri: vscode.Uri): void {
+    this.didChangeEmitter.fire(createRemoteDocumentUri(localFileUri));
+  }
+
+  public dispose(): void {
+    this.didChangeEmitter.dispose();
   }
 }

@@ -9,6 +9,7 @@ import {
   getLocalFileUriFromRemoteDocumentUri,
   isRemoteDocumentUri
 } from '../../diff/remoteDiffDocumentProvider';
+import { getRemoteParentDirectory } from '../../remote/SftpRemoteFileProvider';
 import { DEPLOYDIFF_SFTP_PASSWORD_SECRET_KEY, getSftpConnectionOptions } from '../../remote/sftpConfiguration';
 import { DeployDiffExtensionApi } from '../../extension';
 
@@ -73,6 +74,13 @@ suite('Remote diff document URI', () => {
     assert.equal(remoteUri.scheme, DEPLOYDIFF_REMOTE_DOCUMENT_SCHEME);
     assert.equal(isRemoteDocumentUri(remoteUri), true);
     assert.equal(getLocalFileUriFromRemoteDocumentUri(remoteUri).toString(), localUri.toString());
+  });
+});
+
+suite('SFTP path helpers', () => {
+  test('derives the remote parent directory', () => {
+    assert.equal(getRemoteParentDirectory('/var/www/app/src/example.ts'), '/var/www/app/src');
+    assert.equal(getRemoteParentDirectory('/example.ts'), '/');
   });
 });
 

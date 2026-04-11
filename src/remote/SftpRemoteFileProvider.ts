@@ -23,6 +23,15 @@ export class SftpRemoteFileProvider implements RemoteFileProvider {
 
   public async writeFile(remotePath: string, content: string): Promise<void> {
     await this.withClient(async (client) => {
+      const parentDirectory = getRemoteParentDirectory(remotePath);
+
+      if (parentDirectory !== '/') {
+        const parentExists = await client.exists(parentDirectory);
+        if (!parentExists) {
+          await client.mkdir(parentDirectory, true);
+        }
+      }
+
       await client.put(Buffer.from(content, 'utf8'), remotePath);
     });
   }
@@ -40,4 +49,15 @@ export class SftpRemoteFileProvider implements RemoteFileProvider {
       await client.end().catch(() => undefined);
     }
   }
+}
+
+export function getRemoteParentDirectory(remotePath: string): string {
+  const normalizedPath = remotePath.replace(/\/+/g, '/');
+  const lastSlashIndex = normalizedPath.lastIndexOf('/');
+
+  if (lastSlashIndex <= 0) {
+    return '/';
+  }
+
+  return normalizedPath.slice(0, lastSlashIndex) || '/';
 }
