@@ -30,9 +30,13 @@ export function activate(context: vscode.ExtensionContext): DeployDiffExtensionA
         deploymentStatusIndicator.update();
       }
     }),
-    vscode.workspace.registerTextDocumentContentProvider(
+    vscode.workspace.registerFileSystemProvider(
       DEPLOYDIFF_REMOTE_DOCUMENT_SCHEME,
-      remoteDiffDocumentProvider
+      remoteDiffDocumentProvider,
+      {
+        isCaseSensitive: true,
+        isReadonly: false
+      }
     ),
     registerCompareWithDeployedCommand(remoteDiffDocumentProvider),
     registerUploadToRemoteCommand(context, remoteDiffDocumentProvider),

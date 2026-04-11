@@ -26,23 +26,68 @@ export function getLocalFileUriFromRemoteDocumentUri(remoteUri: vscode.Uri): vsc
   return vscode.Uri.parse(localUri);
 }
 
-export class RemoteDiffDocumentProvider implements vscode.TextDocumentContentProvider {
-  private readonly didChangeEmitter = new vscode.EventEmitter<vscode.Uri>();
+export class RemoteDiffDocumentProvider implements vscode.FileSystemProvider {
+  private readonly didChangeFileEmitter = new vscode.EventEmitter<vscode.FileChangeEvent[]>();
   private readonly cache = new Map<string, string>();
   private readonly metadataCache = new Map<string, RemoteFileMetadata>();
 
   public constructor(private readonly secrets: vscode.SecretStorage) {}
 
-  public readonly onDidChange = this.didChangeEmitter.event;
+  public readonly onDidChangeFile = this.didChangeFileEmitter.event;
 
-  public async provideTextDocumentContent(uri: vscode.Uri): Promise<string> {
+  public watch(): vscode.Disposable {
+    return new vscode.Disposable(() => undefined);
+  }
+
+  public async stat(uri: vscode.Uri): Promise<vscode.FileStat> {
+    const metadata = await this.loadRemoteState(uri);
+
+    return {
+      type: vscode.FileType.File,
+      ctime: 0,
+      mtime: metadata.modifiedAt?.getTime() ?? Date.now(),
+      size: metadata.size
+    };
+  }
+
+  public async readFile(uri: vscode.Uri): Promise<Uint8Array> {
     const cached = this.cache.get(uri.toString());
     if (cached !== undefined) {
-      return cached;
+      return Buffer.from(cached, 'utf8');
     }
 
     await this.loadRemoteState(uri);
-    return this.cache.get(uri.toString()) ?? '';
+    return Buffer.from(this.cache.get(uri.toString()) ?? '', 'utf8');
+  }
+
+  public async writeFile(uri: vscode.Uri, content: Uint8Array): Promise<void> {
+    const localFileUri = getLocalFileUriFromRemoteDocumentUri(uri);
+    const target = resolveDeploymentTarget(localFileUri);
+    const provider = await createRemoteFileProvider(target.workspaceFolder, this.secrets);
+    const nextContent = Buffer.from(content).toString('utf8');
+
+    await provider.writeFile(target.remoteFilePath, nextContent);
+
+    const metadata = await provider.stat(target.remoteFilePath);
+    this.cache.set(uri.toString(), nextContent);
+    this.metadataCache.set(uri.toString(), metadata);
+    this.didChangeFileEmitter.fire([{ type: vscode.FileChangeType.Changed, uri }]);
+  }
+
+  public readDirectory(): [string, vscode.FileType][] {
+    return [];
+  }
+
+  public createDirectory(): void {
+    throw vscode.FileSystemError.NoPermissions('DeployDiff remote documents do not support directory creation here.');
+  }
+
+  public delete(): void {
+    throw vscode.FileSystemError.NoPermissions('DeployDiff remote documents do not support delete from the editor.');
+  }
+
+  public rename(): void {
+    throw vscode.FileSystemError.NoPermissions('DeployDiff remote documents do not support rename from the editor.');
   }
 
   public async preload(localFileUri: vscode.Uri): Promise<RemoteFileMetadata> {
@@ -54,13 +99,13 @@ export class RemoteDiffDocumentProvider implements vscode.TextDocumentContentPro
     const remoteUri = createRemoteDocumentUri(localFileUri);
     this.cache.delete(remoteUri.toString());
     this.metadataCache.delete(remoteUri.toString());
-    this.didChangeEmitter.fire(remoteUri);
+    this.didChangeFileEmitter.fire([{ type: vscode.FileChangeType.Changed, uri: remoteUri }]);
   }
 
   public dispose(): void {
     this.cache.clear();
     this.metadataCache.clear();
-    this.didChangeEmitter.dispose();
+    this.didChangeFileEmitter.dispose();
   }
 
   public getCachedMetadata(localFileUri: vscode.Uri): RemoteFileMetadata | undefined {

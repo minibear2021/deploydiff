@@ -313,17 +313,52 @@ var RemoteDiffDocumentProvider = class {
   constructor(secrets) {
     this.secrets = secrets;
   }
-  didChangeEmitter = new vscode4.EventEmitter();
+  didChangeFileEmitter = new vscode4.EventEmitter();
   cache = /* @__PURE__ */ new Map();
   metadataCache = /* @__PURE__ */ new Map();
-  onDidChange = this.didChangeEmitter.event;
-  async provideTextDocumentContent(uri) {
+  onDidChangeFile = this.didChangeFileEmitter.event;
+  watch() {
+    return new vscode4.Disposable(() => void 0);
+  }
+  async stat(uri) {
+    const metadata = await this.loadRemoteState(uri);
+    return {
+      type: vscode4.FileType.File,
+      ctime: 0,
+      mtime: metadata.modifiedAt?.getTime() ?? Date.now(),
+      size: metadata.size
+    };
+  }
+  async readFile(uri) {
     const cached = this.cache.get(uri.toString());
     if (cached !== void 0) {
-      return cached;
+      return Buffer.from(cached, "utf8");
     }
     await this.loadRemoteState(uri);
-    return this.cache.get(uri.toString()) ?? "";
+    return Buffer.from(this.cache.get(uri.toString()) ?? "", "utf8");
+  }
+  async writeFile(uri, content) {
+    const localFileUri = getLocalFileUriFromRemoteDocumentUri(uri);
+    const target = resolveDeploymentTarget(localFileUri);
+    const provider = await createRemoteFileProvider(target.workspaceFolder, this.secrets);
+    const nextContent = Buffer.from(content).toString("utf8");
+    await provider.writeFile(target.remoteFilePath, nextContent);
+    const metadata = await provider.stat(target.remoteFilePath);
+    this.cache.set(uri.toString(), nextContent);
+    this.metadataCache.set(uri.toString(), metadata);
+    this.didChangeFileEmitter.fire([{ type: vscode4.FileChangeType.Changed, uri }]);
+  }
+  readDirectory() {
+    return [];
+  }
+  createDirectory() {
+    throw vscode4.FileSystemError.NoPermissions("DeployDiff remote documents do not support directory creation here.");
+  }
+  delete() {
+    throw vscode4.FileSystemError.NoPermissions("DeployDiff remote documents do not support delete from the editor.");
+  }
+  rename() {
+    throw vscode4.FileSystemError.NoPermissions("DeployDiff remote documents do not support rename from the editor.");
   }
   async preload(localFileUri) {
     const remoteUri = createRemoteDocumentUri(localFileUri);
@@ -333,12 +368,12 @@ var RemoteDiffDocumentProvider = class {
     const remoteUri = createRemoteDocumentUri(localFileUri);
     this.cache.delete(remoteUri.toString());
     this.metadataCache.delete(remoteUri.toString());
-    this.didChangeEmitter.fire(remoteUri);
+    this.didChangeFileEmitter.fire([{ type: vscode4.FileChangeType.Changed, uri: remoteUri }]);
   }
   dispose() {
     this.cache.clear();
     this.metadataCache.clear();
-    this.didChangeEmitter.dispose();
+    this.didChangeFileEmitter.dispose();
   }
   getCachedMetadata(localFileUri) {
     return this.metadataCache.get(createRemoteDocumentUri(localFileUri).toString());
@@ -1066,9 +1101,13 @@ function activate(context) {
         deploymentStatusIndicator.update();
       }
     }),
-    vscode14.workspace.registerTextDocumentContentProvider(
+    vscode14.workspace.registerFileSystemProvider(
       DEPLOYDIFF_REMOTE_DOCUMENT_SCHEME,
-      remoteDiffDocumentProvider
+      remoteDiffDocumentProvider,
+      {
+        isCaseSensitive: true,
+        isReadonly: false
+      }
     ),
     registerCompareWithDeployedCommand(remoteDiffDocumentProvider),
     registerUploadToRemoteCommand(context, remoteDiffDocumentProvider),
