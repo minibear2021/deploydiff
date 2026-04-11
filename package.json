@@ -3,7 +3,7 @@
   "displayName": "DeployDiff",
   "description": "Compare local files with deployed remote versions and sync changes in either direction.",
   "version": "0.0.1",
-  "publisher": "chen",
+  "publisher": "minibear2021",
   "license": "MIT",
   "repository": {
     "type": "git",
