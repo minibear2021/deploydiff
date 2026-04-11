@@ -72,7 +72,7 @@ export class RemoteDiffDocumentProvider implements vscode.TextDocumentContentPro
     const provider = await createRemoteFileProvider(target.workspaceFolder, this.secrets);
 
     if (!(await provider.exists(target.remoteFilePath))) {
-      throw new Error(`No deployed file exists at ${target.remoteFilePath}.`);
+      throw new Error(`No deployed file exists at ${target.remoteFilePath}. Upload the local file first to create it.`);
     }
 
     const metadata = await provider.stat(target.remoteFilePath);

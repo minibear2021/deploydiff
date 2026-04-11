@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
-import { readFile } from 'node:fs/promises';
 import { getOrResolveResourceUri, resolveDeploymentTarget } from '../config/deploymentConfiguration';
 import { RemoteDiffDocumentProvider } from '../diff/remoteDiffDocumentProvider';
 import { createRemoteFileProvider } from '../remote/RemoteFileProvider';
+import { confirmSyncConflict, detectSyncConflict } from '../sync/conflictDetection';
 import { registerDeployCommand } from './runDeployCommand';
 
 export function registerUploadToRemoteCommand(
@@ -27,7 +27,17 @@ export function registerUploadToRemoteCommand(
       }
     }
 
-    const content = await readFile(localFileUri.fsPath, 'utf8');
+    const localStat = await vscode.workspace.fs.stat(localFileUri);
+    if (await provider.exists(target.remoteFilePath)) {
+      const remoteMetadata = await provider.stat(target.remoteFilePath);
+      const conflictMessage = detectSyncConflict('upload', new Date(localStat.mtime), remoteMetadata);
+      if (conflictMessage && !(await confirmSyncConflict('upload', conflictMessage, target.relativePath))) {
+        return;
+      }
+    }
+
+    const contentBytes = await vscode.workspace.fs.readFile(localFileUri);
+    const content = Buffer.from(contentBytes).toString('utf8');
     await provider.writeFile(target.remoteFilePath, content);
     remoteDiffDocumentProvider.refresh(localFileUri);
     await vscode.window.showInformationMessage(`Uploaded ${target.relativePath} to ${target.remoteFilePath}.`);

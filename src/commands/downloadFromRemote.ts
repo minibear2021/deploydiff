@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { getOrResolveResourceUri, resolveDeploymentTarget } from '../config/deploymentConfiguration';
 import { RemoteDiffDocumentProvider } from '../diff/remoteDiffDocumentProvider';
 import { createRemoteFileProvider } from '../remote/RemoteFileProvider';
+import { confirmSyncConflict, detectSyncConflict } from '../sync/conflictDetection';
 import { registerDeployCommand } from './runDeployCommand';
 
 export function registerDownloadFromRemoteCommand(
@@ -24,6 +25,13 @@ export function registerDownloadFromRemoteCommand(
       if (answer !== 'Download') {
         return;
       }
+    }
+
+    const localStat = await vscode.workspace.fs.stat(localFileUri);
+    const remoteMetadata = await provider.stat(target.remoteFilePath);
+    const conflictMessage = detectSyncConflict('download', new Date(localStat.mtime), remoteMetadata);
+    if (conflictMessage && !(await confirmSyncConflict('download', conflictMessage, target.relativePath))) {
+      return;
     }
 
     const content = await provider.readFile(target.remoteFilePath);

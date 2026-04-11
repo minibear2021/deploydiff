@@ -11,6 +11,7 @@ import {
 } from '../../diff/remoteDiffDocumentProvider';
 import { getRemoteParentDirectory } from '../../remote/SftpRemoteFileProvider';
 import { DEPLOYDIFF_SFTP_PASSWORD_SECRET_KEY, getSftpConnectionOptions } from '../../remote/sftpConfiguration';
+import { detectSyncConflict } from '../../sync/conflictDetection';
 import { DeployDiffExtensionApi } from '../../extension';
 import { MockRemoteFileProvider } from '../../remote/MockRemoteFileProvider';
 
@@ -82,6 +83,34 @@ suite('SFTP path helpers', () => {
   test('derives the remote parent directory', () => {
     assert.equal(getRemoteParentDirectory('/var/www/app/src/example.ts'), '/var/www/app/src');
     assert.equal(getRemoteParentDirectory('/example.ts'), '/');
+  });
+});
+
+suite('Sync conflict detection', () => {
+  test('flags upload when the remote file is newer', () => {
+    const result = detectSyncConflict(
+      'upload',
+      new Date('2026-04-11T10:00:00.000Z'),
+      { size: 10, modifiedAt: new Date('2026-04-11T11:00:00.000Z') }
+    );
+
+    assert.match(result ?? '', /deployed file was modified after the local file/i);
+  });
+
+  test('flags download when the local file is newer', () => {
+    const result = detectSyncConflict(
+      'download',
+      new Date('2026-04-11T12:00:00.000Z'),
+      { size: 10, modifiedAt: new Date('2026-04-11T11:00:00.000Z') }
+    );
+
+    assert.match(result ?? '', /local file was modified after the deployed file/i);
+  });
+
+  test('ignores conflicts when remote modified time is unavailable', () => {
+    const result = detectSyncConflict('upload', new Date('2026-04-11T12:00:00.000Z'), { size: 10 });
+
+    assert.equal(result, undefined);
   });
 });
 

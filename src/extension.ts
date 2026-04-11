@@ -19,7 +19,7 @@ export type DeployDiffExtensionApi = {
 
 export function activate(context: vscode.ExtensionContext): DeployDiffExtensionApi {
   const remoteDiffDocumentProvider = new RemoteDiffDocumentProvider(context.secrets);
-  const deploymentStatusIndicator = new DeploymentStatusIndicator();
+  const deploymentStatusIndicator = new DeploymentStatusIndicator(remoteDiffDocumentProvider);
 
   context.subscriptions.push(
     deploymentStatusIndicator,
