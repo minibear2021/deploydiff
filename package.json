@@ -106,28 +106,6 @@
           "when": "resourceScheme == file || resourceScheme == deploydiff-remote",
           "group": "navigation@23"
         }
-      ],
-      "editor/title": [
-        {
-          "command": "deploydiff.compareWithDeployedVersion",
-          "when": "resourceScheme == file || resourceScheme == deploydiff-remote",
-          "group": "navigation@20"
-        },
-        {
-          "command": "deploydiff.uploadToRemote",
-          "when": "resourceScheme == file || resourceScheme == deploydiff-remote",
-          "group": "navigation@21"
-        },
-        {
-          "command": "deploydiff.downloadFromRemote",
-          "when": "resourceScheme == file || resourceScheme == deploydiff-remote",
-          "group": "navigation@22"
-        },
-        {
-          "command": "deploydiff.refreshDeployedVersion",
-          "when": "resourceScheme == file || resourceScheme == deploydiff-remote",
-          "group": "navigation@23"
-        }
       ]
     },
     "configuration": {
