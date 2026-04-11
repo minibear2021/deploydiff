@@ -1,5 +1,5 @@
 import SftpClient from 'ssh2-sftp-client';
-import { RemoteFileProvider } from './RemoteFileProvider';
+import { RemoteFileMetadata, RemoteFileProvider } from './RemoteFileProvider';
 import { SftpConnectionOptions } from './sftpConfiguration';
 
 export class SftpRemoteFileProvider implements RemoteFileProvider {
@@ -7,6 +7,17 @@ export class SftpRemoteFileProvider implements RemoteFileProvider {
 
   public async exists(remotePath: string): Promise<boolean> {
     return this.withClient(async (client) => Boolean(await client.exists(remotePath)));
+  }
+
+  public async stat(remotePath: string): Promise<RemoteFileMetadata> {
+    return this.withClient(async (client) => {
+      const stats = await client.stat(remotePath);
+
+      return {
+        size: stats.size,
+        modifiedAt: typeof stats.modifyTime === 'number' ? new Date(stats.modifyTime) : undefined
+      };
+    });
   }
 
   public async readFile(remotePath: string): Promise<string> {

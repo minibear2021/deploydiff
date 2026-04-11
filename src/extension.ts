@@ -11,6 +11,7 @@ import {
   DEPLOYDIFF_REMOTE_DOCUMENT_SCHEME,
   RemoteDiffDocumentProvider
 } from './diff/remoteDiffDocumentProvider';
+import { DeploymentStatusIndicator } from './status/deploymentStatusIndicator';
 
 export type DeployDiffExtensionApi = {
   secrets: vscode.SecretStorage;
@@ -18,8 +19,16 @@ export type DeployDiffExtensionApi = {
 
 export function activate(context: vscode.ExtensionContext): DeployDiffExtensionApi {
   const remoteDiffDocumentProvider = new RemoteDiffDocumentProvider(context.secrets);
+  const deploymentStatusIndicator = new DeploymentStatusIndicator();
 
   context.subscriptions.push(
+    deploymentStatusIndicator,
+    vscode.window.onDidChangeActiveTextEditor(() => deploymentStatusIndicator.update()),
+    vscode.workspace.onDidChangeConfiguration((event) => {
+      if (event.affectsConfiguration('deploydiff')) {
+        deploymentStatusIndicator.update();
+      }
+    }),
     vscode.workspace.registerTextDocumentContentProvider(
       DEPLOYDIFF_REMOTE_DOCUMENT_SCHEME,
       remoteDiffDocumentProvider

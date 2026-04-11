@@ -3,8 +3,14 @@ import { MockRemoteFileProvider } from './MockRemoteFileProvider';
 import { SftpRemoteFileProvider } from './SftpRemoteFileProvider';
 import { getSftpConnectionOptions } from './sftpConfiguration';
 
+export type RemoteFileMetadata = {
+  size: number;
+  modifiedAt?: Date;
+};
+
 export interface RemoteFileProvider {
   exists(remotePath: string): Promise<boolean>;
+  stat(remotePath: string): Promise<RemoteFileMetadata>;
   readFile(remotePath: string): Promise<string>;
   writeFile(remotePath: string, content: string): Promise<void>;
 }

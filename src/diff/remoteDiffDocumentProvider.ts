@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { resolveDeploymentTarget } from '../config/deploymentConfiguration';
-import { createRemoteFileProvider } from '../remote/RemoteFileProvider';
+import { createRemoteFileProvider, RemoteFileMetadata } from '../remote/RemoteFileProvider';
 
 export const DEPLOYDIFF_REMOTE_DOCUMENT_SCHEME = 'deploydiff-remote';
 
@@ -28,6 +28,7 @@ export function getLocalFileUriFromRemoteDocumentUri(remoteUri: vscode.Uri): vsc
 export class RemoteDiffDocumentProvider implements vscode.TextDocumentContentProvider {
   private readonly didChangeEmitter = new vscode.EventEmitter<vscode.Uri>();
   private readonly cache = new Map<string, string>();
+  private readonly metadataCache = new Map<string, RemoteFileMetadata>();
 
   public constructor(private readonly secrets: vscode.SecretStorage) {}
 
@@ -39,27 +40,33 @@ export class RemoteDiffDocumentProvider implements vscode.TextDocumentContentPro
       return cached;
     }
 
-    return this.loadRemoteContent(uri);
+    await this.loadRemoteState(uri);
+    return this.cache.get(uri.toString()) ?? '';
   }
 
-  public async preload(localFileUri: vscode.Uri): Promise<void> {
+  public async preload(localFileUri: vscode.Uri): Promise<RemoteFileMetadata> {
     const remoteUri = createRemoteDocumentUri(localFileUri);
-    const content = await this.loadRemoteContent(remoteUri);
-    this.cache.set(remoteUri.toString(), content);
+    return this.loadRemoteState(remoteUri);
   }
 
   public refresh(localFileUri: vscode.Uri): void {
     const remoteUri = createRemoteDocumentUri(localFileUri);
     this.cache.delete(remoteUri.toString());
+    this.metadataCache.delete(remoteUri.toString());
     this.didChangeEmitter.fire(remoteUri);
   }
 
   public dispose(): void {
     this.cache.clear();
+    this.metadataCache.clear();
     this.didChangeEmitter.dispose();
   }
 
-  private async loadRemoteContent(uri: vscode.Uri): Promise<string> {
+  public getCachedMetadata(localFileUri: vscode.Uri): RemoteFileMetadata | undefined {
+    return this.metadataCache.get(createRemoteDocumentUri(localFileUri).toString());
+  }
+
+  private async loadRemoteState(uri: vscode.Uri): Promise<RemoteFileMetadata> {
     const localFileUri = getLocalFileUriFromRemoteDocumentUri(uri);
     const target = resolveDeploymentTarget(localFileUri);
     const provider = await createRemoteFileProvider(target.workspaceFolder, this.secrets);
@@ -68,8 +75,10 @@ export class RemoteDiffDocumentProvider implements vscode.TextDocumentContentPro
       throw new Error(`No deployed file exists at ${target.remoteFilePath}.`);
     }
 
+    const metadata = await provider.stat(target.remoteFilePath);
     const content = await provider.readFile(target.remoteFilePath);
     this.cache.set(uri.toString(), content);
-    return content;
+    this.metadataCache.set(uri.toString(), metadata);
+    return metadata;
   }
 }

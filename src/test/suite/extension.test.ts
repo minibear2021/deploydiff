@@ -104,6 +104,17 @@ suite('Mock remote provider', () => {
     assert.equal(await provider.exists('/var/www/app/src/example.ts'), true);
     assert.equal(await provider.exists('/var/www/app/src/missing.ts'), false);
   });
+
+  test('returns byte-size metadata for configured files', async () => {
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    assert.ok(workspaceFolder);
+
+    const provider = new MockRemoteFileProvider(workspaceFolder);
+    const metadata = await provider.stat('/var/www/app/src/example.ts');
+
+    assert.equal(metadata.size, Buffer.byteLength('remote-content', 'utf8'));
+    assert.equal(metadata.modifiedAt, undefined);
+  });
 });
 
 suite('Extension bootstrap', () => {

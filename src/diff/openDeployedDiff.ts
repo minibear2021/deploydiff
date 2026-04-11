@@ -7,7 +7,7 @@ export async function openDeployedDiff(
   remoteDiffDocumentProvider: RemoteDiffDocumentProvider
 ): Promise<void> {
   const target = resolveDeploymentTarget(localFileUri);
-  await remoteDiffDocumentProvider.preload(localFileUri);
+  const remoteMetadata = await remoteDiffDocumentProvider.preload(localFileUri);
   const localDocument = await vscode.workspace.openTextDocument(localFileUri);
   const remoteDocument = await vscode.workspace.openTextDocument(createRemoteDocumentUri(localFileUri));
 
@@ -15,7 +15,10 @@ export async function openDeployedDiff(
     await vscode.languages.setTextDocumentLanguage(remoteDocument, localDocument.languageId);
   }
 
-  const title = `${target.relativePath} ↔ Deployed`;
+  const metadataSuffix = remoteMetadata.modifiedAt
+    ? ` • ${remoteMetadata.modifiedAt.toISOString()}`
+    : ` • ${remoteMetadata.size} bytes`;
+  const title = `${target.relativePath} ↔ ${target.mapping.name}${metadataSuffix}`;
   await vscode.commands.executeCommand('vscode.diff', localFileUri, remoteDocument.uri, title, {
     preview: false
   });
