@@ -34,7 +34,10 @@ __export(extension_exports, {
   deactivate: () => deactivate
 });
 module.exports = __toCommonJS(extension_exports);
-var vscode13 = __toESM(require("vscode"));
+var vscode14 = __toESM(require("vscode"));
+
+// src/commands/applyDiffHunk.ts
+var vscode7 = __toESM(require("vscode"));
 
 // src/config/deploymentConfiguration.ts
 var path3 = __toESM(require("node:path"));
@@ -340,6 +343,9 @@ var RemoteDiffDocumentProvider = class {
   getCachedMetadata(localFileUri) {
     return this.metadataCache.get(createRemoteDocumentUri(localFileUri).toString());
   }
+  getCachedContent(localFileUri) {
+    return this.cache.get(createRemoteDocumentUri(localFileUri).toString());
+  }
   async loadRemoteState(uri) {
     const localFileUri = getLocalFileUriFromRemoteDocumentUri(uri);
     const target = resolveDeploymentTarget(localFileUri);
@@ -418,42 +424,463 @@ function resolveDeploymentTarget(localFileUri) {
   return resolveMappingForFile(localFileUri.fsPath, workspaceFolder, mappings);
 }
 
-// src/diff/openDeployedDiff.ts
-var vscode6 = __toESM(require("vscode"));
-async function openDeployedDiff(localFileUri, remoteDiffDocumentProvider) {
-  const target = resolveDeploymentTarget(localFileUri);
-  const remoteMetadata = await remoteDiffDocumentProvider.preload(localFileUri);
-  const localDocument = await vscode6.workspace.openTextDocument(localFileUri);
-  const remoteDocument = await vscode6.workspace.openTextDocument(createRemoteDocumentUri(localFileUri));
-  if (remoteDocument.languageId !== localDocument.languageId) {
-    await vscode6.languages.setTextDocumentLanguage(remoteDocument, localDocument.languageId);
+// node_modules/diff/libesm/diff/base.js
+var Diff = class {
+  diff(oldStr, newStr, options = {}) {
+    let callback;
+    if (typeof options === "function") {
+      callback = options;
+      options = {};
+    } else if ("callback" in options) {
+      callback = options.callback;
+    }
+    const oldString = this.castInput(oldStr, options);
+    const newString = this.castInput(newStr, options);
+    const oldTokens = this.removeEmpty(this.tokenize(oldString, options));
+    const newTokens = this.removeEmpty(this.tokenize(newString, options));
+    return this.diffWithOptionsObj(oldTokens, newTokens, options, callback);
   }
-  const metadataSuffix = remoteMetadata.modifiedAt ? ` \u2022 ${remoteMetadata.modifiedAt.toISOString()}` : ` \u2022 ${remoteMetadata.size} bytes`;
-  const title = `${target.relativePath} \u2194 ${target.mapping.name}${metadataSuffix}`;
-  await vscode6.commands.executeCommand("vscode.diff", localFileUri, remoteDocument.uri, title, {
-    preview: false
-  });
+  diffWithOptionsObj(oldTokens, newTokens, options, callback) {
+    var _a;
+    const done = (value) => {
+      value = this.postProcess(value, options);
+      if (callback) {
+        setTimeout(function() {
+          callback(value);
+        }, 0);
+        return void 0;
+      } else {
+        return value;
+      }
+    };
+    const newLen = newTokens.length, oldLen = oldTokens.length;
+    let editLength = 1;
+    let maxEditLength = newLen + oldLen;
+    if (options.maxEditLength != null) {
+      maxEditLength = Math.min(maxEditLength, options.maxEditLength);
+    }
+    const maxExecutionTime = (_a = options.timeout) !== null && _a !== void 0 ? _a : Infinity;
+    const abortAfterTimestamp = Date.now() + maxExecutionTime;
+    const bestPath = [{ oldPos: -1, lastComponent: void 0 }];
+    let newPos = this.extractCommon(bestPath[0], newTokens, oldTokens, 0, options);
+    if (bestPath[0].oldPos + 1 >= oldLen && newPos + 1 >= newLen) {
+      return done(this.buildValues(bestPath[0].lastComponent, newTokens, oldTokens));
+    }
+    let minDiagonalToConsider = -Infinity, maxDiagonalToConsider = Infinity;
+    const execEditLength = () => {
+      for (let diagonalPath = Math.max(minDiagonalToConsider, -editLength); diagonalPath <= Math.min(maxDiagonalToConsider, editLength); diagonalPath += 2) {
+        let basePath;
+        const removePath = bestPath[diagonalPath - 1], addPath = bestPath[diagonalPath + 1];
+        if (removePath) {
+          bestPath[diagonalPath - 1] = void 0;
+        }
+        let canAdd = false;
+        if (addPath) {
+          const addPathNewPos = addPath.oldPos - diagonalPath;
+          canAdd = addPath && 0 <= addPathNewPos && addPathNewPos < newLen;
+        }
+        const canRemove = removePath && removePath.oldPos + 1 < oldLen;
+        if (!canAdd && !canRemove) {
+          bestPath[diagonalPath] = void 0;
+          continue;
+        }
+        if (!canRemove || canAdd && removePath.oldPos < addPath.oldPos) {
+          basePath = this.addToPath(addPath, true, false, 0, options);
+        } else {
+          basePath = this.addToPath(removePath, false, true, 1, options);
+        }
+        newPos = this.extractCommon(basePath, newTokens, oldTokens, diagonalPath, options);
+        if (basePath.oldPos + 1 >= oldLen && newPos + 1 >= newLen) {
+          return done(this.buildValues(basePath.lastComponent, newTokens, oldTokens)) || true;
+        } else {
+          bestPath[diagonalPath] = basePath;
+          if (basePath.oldPos + 1 >= oldLen) {
+            maxDiagonalToConsider = Math.min(maxDiagonalToConsider, diagonalPath - 1);
+          }
+          if (newPos + 1 >= newLen) {
+            minDiagonalToConsider = Math.max(minDiagonalToConsider, diagonalPath + 1);
+          }
+        }
+      }
+      editLength++;
+    };
+    if (callback) {
+      (function exec() {
+        setTimeout(function() {
+          if (editLength > maxEditLength || Date.now() > abortAfterTimestamp) {
+            return callback(void 0);
+          }
+          if (!execEditLength()) {
+            exec();
+          }
+        }, 0);
+      })();
+    } else {
+      while (editLength <= maxEditLength && Date.now() <= abortAfterTimestamp) {
+        const ret = execEditLength();
+        if (ret) {
+          return ret;
+        }
+      }
+    }
+  }
+  addToPath(path4, added, removed, oldPosInc, options) {
+    const last = path4.lastComponent;
+    if (last && !options.oneChangePerToken && last.added === added && last.removed === removed) {
+      return {
+        oldPos: path4.oldPos + oldPosInc,
+        lastComponent: { count: last.count + 1, added, removed, previousComponent: last.previousComponent }
+      };
+    } else {
+      return {
+        oldPos: path4.oldPos + oldPosInc,
+        lastComponent: { count: 1, added, removed, previousComponent: last }
+      };
+    }
+  }
+  extractCommon(basePath, newTokens, oldTokens, diagonalPath, options) {
+    const newLen = newTokens.length, oldLen = oldTokens.length;
+    let oldPos = basePath.oldPos, newPos = oldPos - diagonalPath, commonCount = 0;
+    while (newPos + 1 < newLen && oldPos + 1 < oldLen && this.equals(oldTokens[oldPos + 1], newTokens[newPos + 1], options)) {
+      newPos++;
+      oldPos++;
+      commonCount++;
+      if (options.oneChangePerToken) {
+        basePath.lastComponent = { count: 1, previousComponent: basePath.lastComponent, added: false, removed: false };
+      }
+    }
+    if (commonCount && !options.oneChangePerToken) {
+      basePath.lastComponent = { count: commonCount, previousComponent: basePath.lastComponent, added: false, removed: false };
+    }
+    basePath.oldPos = oldPos;
+    return newPos;
+  }
+  equals(left, right, options) {
+    if (options.comparator) {
+      return options.comparator(left, right);
+    } else {
+      return left === right || !!options.ignoreCase && left.toLowerCase() === right.toLowerCase();
+    }
+  }
+  removeEmpty(array) {
+    const ret = [];
+    for (let i = 0; i < array.length; i++) {
+      if (array[i]) {
+        ret.push(array[i]);
+      }
+    }
+    return ret;
+  }
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  castInput(value, options) {
+    return value;
+  }
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  tokenize(value, options) {
+    return Array.from(value);
+  }
+  join(chars) {
+    return chars.join("");
+  }
+  postProcess(changeObjects, options) {
+    return changeObjects;
+  }
+  get useLongestToken() {
+    return false;
+  }
+  buildValues(lastComponent, newTokens, oldTokens) {
+    const components = [];
+    let nextComponent;
+    while (lastComponent) {
+      components.push(lastComponent);
+      nextComponent = lastComponent.previousComponent;
+      delete lastComponent.previousComponent;
+      lastComponent = nextComponent;
+    }
+    components.reverse();
+    const componentLen = components.length;
+    let componentPos = 0, newPos = 0, oldPos = 0;
+    for (; componentPos < componentLen; componentPos++) {
+      const component = components[componentPos];
+      if (!component.removed) {
+        if (!component.added && this.useLongestToken) {
+          let value = newTokens.slice(newPos, newPos + component.count);
+          value = value.map(function(value2, i) {
+            const oldValue = oldTokens[oldPos + i];
+            return oldValue.length > value2.length ? oldValue : value2;
+          });
+          component.value = this.join(value);
+        } else {
+          component.value = this.join(newTokens.slice(newPos, newPos + component.count));
+        }
+        newPos += component.count;
+        if (!component.added) {
+          oldPos += component.count;
+        }
+      } else {
+        component.value = this.join(oldTokens.slice(oldPos, oldPos + component.count));
+        oldPos += component.count;
+      }
+    }
+    return components;
+  }
+};
+
+// node_modules/diff/libesm/diff/line.js
+var LineDiff = class extends Diff {
+  constructor() {
+    super(...arguments);
+    this.tokenize = tokenize;
+  }
+  equals(left, right, options) {
+    if (options.ignoreWhitespace) {
+      if (!options.newlineIsToken || !left.includes("\n")) {
+        left = left.trim();
+      }
+      if (!options.newlineIsToken || !right.includes("\n")) {
+        right = right.trim();
+      }
+    } else if (options.ignoreNewlineAtEof && !options.newlineIsToken) {
+      if (left.endsWith("\n")) {
+        left = left.slice(0, -1);
+      }
+      if (right.endsWith("\n")) {
+        right = right.slice(0, -1);
+      }
+    }
+    return super.equals(left, right, options);
+  }
+};
+var lineDiff = new LineDiff();
+function diffLines(oldStr, newStr, options) {
+  return lineDiff.diff(oldStr, newStr, options);
+}
+function tokenize(value, options) {
+  if (options.stripTrailingCr) {
+    value = value.replace(/\r\n/g, "\n");
+  }
+  const retLines = [], linesAndNewlines = value.split(/(\n|\r\n)/);
+  if (!linesAndNewlines[linesAndNewlines.length - 1]) {
+    linesAndNewlines.pop();
+  }
+  for (let i = 0; i < linesAndNewlines.length; i++) {
+    const line = linesAndNewlines[i];
+    if (i % 2 && !options.newlineIsToken) {
+      retLines[retLines.length - 1] += line;
+    } else {
+      retLines.push(line);
+    }
+  }
+  return retLines;
+}
+
+// src/diff/hunks.ts
+function computeDiffHunks(localText, remoteText) {
+  const changes = diffLines(localText, remoteText);
+  const hunks = [];
+  let localLine = 0;
+  let remoteLine = 0;
+  let currentHunk;
+  for (const change of changes) {
+    const lineCount = countLines(change.value);
+    if (!change.added && !change.removed) {
+      if (currentHunk) {
+        hunks.push(currentHunk);
+        currentHunk = void 0;
+      }
+      localLine += lineCount;
+      remoteLine += lineCount;
+      continue;
+    }
+    if (!currentHunk) {
+      currentHunk = {
+        localStartLine: localLine,
+        localEndLine: localLine,
+        remoteStartLine: remoteLine,
+        remoteEndLine: remoteLine
+      };
+    }
+    if (change.removed) {
+      localLine += lineCount;
+      currentHunk.localEndLine = localLine;
+      continue;
+    }
+    remoteLine += lineCount;
+    currentHunk.remoteEndLine = remoteLine;
+  }
+  if (currentHunk) {
+    hunks.push(currentHunk);
+  }
+  return hunks;
+}
+function replaceLinesInText(text, startLine, endLine, replacement) {
+  const offsets = getLineStartOffsets(text);
+  const startOffset = getOffsetForLine(offsets, text, startLine);
+  const endOffset = getOffsetForLine(offsets, text, endLine);
+  return `${text.slice(0, startOffset)}${replacement}${text.slice(endOffset)}`;
+}
+function extractLines(text, startLine, endLine) {
+  const offsets = getLineStartOffsets(text);
+  const startOffset = getOffsetForLine(offsets, text, startLine);
+  const endOffset = getOffsetForLine(offsets, text, endLine);
+  return text.slice(startOffset, endOffset);
+}
+function countLines(value) {
+  if (value.length === 0) {
+    return 0;
+  }
+  const matches = value.match(/\r\n|\r|\n/g);
+  const newlineCount = matches?.length ?? 0;
+  return value.endsWith("\n") || value.endsWith("\r") ? newlineCount : newlineCount + 1;
+}
+function getLineStartOffsets(text) {
+  const offsets = [0];
+  for (let index = 0; index < text.length; index += 1) {
+    const character = text[index];
+    if (character === "\n") {
+      offsets.push(index + 1);
+      continue;
+    }
+    if (character === "\r") {
+      if (text[index + 1] === "\n") {
+        offsets.push(index + 2);
+        index += 1;
+      } else {
+        offsets.push(index + 1);
+      }
+    }
+  }
+  return offsets;
+}
+function getOffsetForLine(offsets, text, line) {
+  if (line <= 0) {
+    return 0;
+  }
+  if (line >= offsets.length) {
+    return text.length;
+  }
+  return offsets[line];
 }
 
 // src/commands/runDeployCommand.ts
-var vscode7 = __toESM(require("vscode"));
+var vscode6 = __toESM(require("vscode"));
 function registerDeployCommand(commandId, handler) {
-  return vscode7.commands.registerCommand(commandId, async (resource) => {
+  return vscode6.commands.registerCommand(commandId, async (resource) => {
     try {
       await handler(resource);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown DeployDiff error.";
       if (isDeployDiffError(error) && error.actions.length > 0) {
         const actionLabels = error.actions.map((action) => action.label);
-        const selectedActionLabel = await vscode7.window.showErrorMessage(message, ...actionLabels);
+        const selectedActionLabel = await vscode6.window.showErrorMessage(message, ...actionLabels);
         const selectedAction = error.actions.find((action) => action.label === selectedActionLabel);
         if (selectedAction) {
-          await vscode7.commands.executeCommand(selectedAction.commandId, ...selectedAction.arguments ?? []);
+          await vscode6.commands.executeCommand(selectedAction.commandId, ...selectedAction.arguments ?? []);
         }
         return;
       }
-      await vscode7.window.showErrorMessage(message);
+      await vscode6.window.showErrorMessage(message);
     }
+  });
+}
+
+// src/commands/applyDiffHunk.ts
+function registerApplyHunkToRemoteCommand(context, remoteDiffDocumentProvider) {
+  return registerDeployCommand("deploydiff.applyHunkToRemote", async (resource) => {
+    const argumentsPayload = await resolveHunkArguments(resource, remoteDiffDocumentProvider);
+    const localFileUri = vscode7.Uri.parse(argumentsPayload.localFileUri);
+    const target = resolveDeploymentTarget(localFileUri);
+    const provider = await createRemoteFileProvider(target.workspaceFolder, context.secrets);
+    const localBytes = await vscode7.workspace.fs.readFile(localFileUri);
+    const localText = Buffer.from(localBytes).toString("utf8");
+    const remoteText = await provider.readFile(target.remoteFilePath);
+    const replacement = extractLines(localText, argumentsPayload.hunk.localStartLine, argumentsPayload.hunk.localEndLine);
+    const nextRemoteText = replaceLinesInText(
+      remoteText,
+      argumentsPayload.hunk.remoteStartLine,
+      argumentsPayload.hunk.remoteEndLine,
+      replacement
+    );
+    await provider.writeFile(target.remoteFilePath, nextRemoteText);
+    remoteDiffDocumentProvider.refresh(localFileUri);
+  });
+}
+function registerApplyHunkToLocalCommand(context, remoteDiffDocumentProvider) {
+  return registerDeployCommand("deploydiff.applyHunkToLocal", async (resource) => {
+    const argumentsPayload = await resolveHunkArguments(resource, remoteDiffDocumentProvider);
+    const localFileUri = vscode7.Uri.parse(argumentsPayload.localFileUri);
+    const target = resolveDeploymentTarget(localFileUri);
+    const provider = await createRemoteFileProvider(target.workspaceFolder, context.secrets);
+    const localBytes = await vscode7.workspace.fs.readFile(localFileUri);
+    const localText = Buffer.from(localBytes).toString("utf8");
+    const remoteText = await provider.readFile(target.remoteFilePath);
+    const replacement = extractLines(remoteText, argumentsPayload.hunk.remoteStartLine, argumentsPayload.hunk.remoteEndLine);
+    const nextLocalText = replaceLinesInText(
+      localText,
+      argumentsPayload.hunk.localStartLine,
+      argumentsPayload.hunk.localEndLine,
+      replacement
+    );
+    await vscode7.workspace.fs.writeFile(localFileUri, Buffer.from(nextLocalText, "utf8"));
+    remoteDiffDocumentProvider.refresh(localFileUri);
+  });
+}
+async function resolveHunkArguments(resource, remoteDiffDocumentProvider) {
+  const candidate = resource;
+  if (candidate?.localFileUri && candidate.hunk) {
+    return candidate;
+  }
+  const activeEditor = vscode7.window.activeTextEditor;
+  if (!activeEditor) {
+    throw new Error("Open a diff editor and place the cursor inside a changed block first.");
+  }
+  const localFileUri = getOrResolveResourceUri(resource ?? activeEditor.document.uri);
+  await remoteDiffDocumentProvider.preload(localFileUri);
+  const remoteText = remoteDiffDocumentProvider.getCachedContent(localFileUri);
+  if (remoteText === void 0) {
+    throw new Error("The deployed diff content is not loaded yet. Open Compare with Deployed Version first.");
+  }
+  const localBytes = await vscode7.workspace.fs.readFile(localFileUri);
+  const localText = Buffer.from(localBytes).toString("utf8");
+  const hunks = computeDiffHunks(localText, remoteText);
+  const activeLine = activeEditor.selection.active.line;
+  const isLocalSide = activeEditor.document.uri.scheme === "file";
+  const hunk = hunks.find(
+    (item) => isLineInsideHunk(
+      activeLine,
+      isLocalSide ? item.localStartLine : item.remoteStartLine,
+      isLocalSide ? item.localEndLine : item.remoteEndLine
+    )
+  );
+  if (!hunk) {
+    throw new Error("Place the cursor inside a changed block in the diff editor first.");
+  }
+  return {
+    localFileUri: localFileUri.toString(),
+    hunk
+  };
+}
+function isLineInsideHunk(line, startLine, endLine) {
+  if (startLine === endLine) {
+    return line === startLine;
+  }
+  return line >= startLine && line < endLine;
+}
+
+// src/diff/openDeployedDiff.ts
+var vscode8 = __toESM(require("vscode"));
+async function openDeployedDiff(localFileUri, remoteDiffDocumentProvider) {
+  const target = resolveDeploymentTarget(localFileUri);
+  const remoteMetadata = await remoteDiffDocumentProvider.preload(localFileUri);
+  const localDocument = await vscode8.workspace.openTextDocument(localFileUri);
+  const remoteDocument = await vscode8.workspace.openTextDocument(createRemoteDocumentUri(localFileUri));
+  if (remoteDocument.languageId !== localDocument.languageId) {
+    await vscode8.languages.setTextDocumentLanguage(remoteDocument, localDocument.languageId);
+  }
+  const metadataSuffix = remoteMetadata.modifiedAt ? ` \u2022 ${remoteMetadata.modifiedAt.toISOString()}` : ` \u2022 ${remoteMetadata.size} bytes`;
+  const title = `${target.relativePath} \u2194 ${target.mapping.name}${metadataSuffix}`;
+  await vscode8.commands.executeCommand("vscode.diff", localFileUri, remoteDocument.uri, title, {
+    preview: false
   });
 }
 
@@ -466,10 +893,10 @@ function registerCompareWithDeployedCommand(remoteDiffDocumentProvider) {
 }
 
 // src/commands/downloadFromRemote.ts
-var vscode9 = __toESM(require("vscode"));
+var vscode10 = __toESM(require("vscode"));
 
 // src/sync/conflictDetection.ts
-var vscode8 = __toESM(require("vscode"));
+var vscode9 = __toESM(require("vscode"));
 function detectSyncConflict(direction, localModifiedAt, remoteMetadata) {
   if (!remoteMetadata.modifiedAt) {
     return void 0;
@@ -486,7 +913,7 @@ function detectSyncConflict(direction, localModifiedAt, remoteMetadata) {
 }
 async function confirmSyncConflict(direction, conflictMessage, relativePath) {
   const actionLabel = direction === "upload" ? "Overwrite Remote" : "Overwrite Local";
-  const answer = await vscode8.window.showWarningMessage(
+  const answer = await vscode9.window.showWarningMessage(
     `${conflictMessage} Continue syncing ${relativePath}?`,
     { modal: true },
     actionLabel
@@ -499,11 +926,11 @@ function registerDownloadFromRemoteCommand(context, remoteDiffDocumentProvider) 
   return registerDeployCommand("deploydiff.downloadFromRemote", async (resource) => {
     const localFileUri = getOrResolveResourceUri(resource);
     const target = resolveDeploymentTarget(localFileUri);
-    const configuration = vscode9.workspace.getConfiguration("deploydiff", target.workspaceFolder.uri);
+    const configuration = vscode10.workspace.getConfiguration("deploydiff", target.workspaceFolder.uri);
     const confirmSync = configuration.get("confirmSync", true);
     const provider = await createRemoteFileProvider(target.workspaceFolder, context.secrets);
     if (confirmSync) {
-      const answer = await vscode9.window.showWarningMessage(
+      const answer = await vscode10.window.showWarningMessage(
         `Replace local file ${target.relativePath} with the deployed version from ${target.mapping.remoteRoot}?`,
         { modal: true },
         "Download"
@@ -512,24 +939,24 @@ function registerDownloadFromRemoteCommand(context, remoteDiffDocumentProvider) 
         return;
       }
     }
-    const localStat = await vscode9.workspace.fs.stat(localFileUri);
+    const localStat = await vscode10.workspace.fs.stat(localFileUri);
     const remoteMetadata = await provider.stat(target.remoteFilePath);
     const conflictMessage = detectSyncConflict("download", new Date(localStat.mtime), remoteMetadata);
     if (conflictMessage && !await confirmSyncConflict("download", conflictMessage, target.relativePath)) {
       return;
     }
     const content = await provider.readFile(target.remoteFilePath);
-    await vscode9.workspace.fs.writeFile(localFileUri, Buffer.from(content, "utf8"));
+    await vscode10.workspace.fs.writeFile(localFileUri, Buffer.from(content, "utf8"));
     remoteDiffDocumentProvider.refresh(localFileUri);
-    await vscode9.window.showInformationMessage(`Downloaded ${target.remoteFilePath} to ${target.relativePath}.`);
+    await vscode10.window.showInformationMessage(`Downloaded ${target.remoteFilePath} to ${target.relativePath}.`);
   });
 }
 
 // src/commands/manageSftpPassword.ts
-var vscode10 = __toESM(require("vscode"));
+var vscode11 = __toESM(require("vscode"));
 function registerSetSftpPasswordCommand(context) {
   return registerDeployCommand("deploydiff.setSftpPassword", async () => {
-    const password = await vscode10.window.showInputBox({
+    const password = await vscode11.window.showInputBox({
       title: "Set DeployDiff SFTP Password",
       prompt: "Password is stored in VS Code Secret Storage for this workspace session profile.",
       password: true,
@@ -539,13 +966,13 @@ function registerSetSftpPasswordCommand(context) {
       return;
     }
     await context.secrets.store(DEPLOYDIFF_SFTP_PASSWORD_SECRET_KEY, password);
-    await vscode10.window.showInformationMessage("DeployDiff SFTP password stored in Secret Storage.");
+    await vscode11.window.showInformationMessage("DeployDiff SFTP password stored in Secret Storage.");
   });
 }
 function registerClearSftpPasswordCommand(context) {
   return registerDeployCommand("deploydiff.clearSftpPassword", async () => {
     await context.secrets.delete(DEPLOYDIFF_SFTP_PASSWORD_SECRET_KEY);
-    await vscode10.window.showInformationMessage("DeployDiff SFTP password cleared from Secret Storage.");
+    await vscode11.window.showInformationMessage("DeployDiff SFTP password cleared from Secret Storage.");
   });
 }
 
@@ -559,16 +986,16 @@ function registerRefreshDeployedVersionCommand(remoteDiffDocumentProvider) {
 }
 
 // src/commands/uploadToRemote.ts
-var vscode11 = __toESM(require("vscode"));
+var vscode12 = __toESM(require("vscode"));
 function registerUploadToRemoteCommand(context, remoteDiffDocumentProvider) {
   return registerDeployCommand("deploydiff.uploadToRemote", async (resource) => {
     const localFileUri = getOrResolveResourceUri(resource);
     const target = resolveDeploymentTarget(localFileUri);
-    const configuration = vscode11.workspace.getConfiguration("deploydiff", target.workspaceFolder.uri);
+    const configuration = vscode12.workspace.getConfiguration("deploydiff", target.workspaceFolder.uri);
     const confirmSync = configuration.get("confirmSync", true);
     const provider = await createRemoteFileProvider(target.workspaceFolder, context.secrets);
     if (confirmSync) {
-      const answer = await vscode11.window.showWarningMessage(
+      const answer = await vscode12.window.showWarningMessage(
         `Upload ${target.relativePath} to ${target.mapping.remoteRoot}?`,
         { modal: true },
         "Upload"
@@ -577,7 +1004,7 @@ function registerUploadToRemoteCommand(context, remoteDiffDocumentProvider) {
         return;
       }
     }
-    const localStat = await vscode11.workspace.fs.stat(localFileUri);
+    const localStat = await vscode12.workspace.fs.stat(localFileUri);
     if (await provider.exists(target.remoteFilePath)) {
       const remoteMetadata = await provider.stat(target.remoteFilePath);
       const conflictMessage = detectSyncConflict("upload", new Date(localStat.mtime), remoteMetadata);
@@ -585,16 +1012,16 @@ function registerUploadToRemoteCommand(context, remoteDiffDocumentProvider) {
         return;
       }
     }
-    const contentBytes = await vscode11.workspace.fs.readFile(localFileUri);
+    const contentBytes = await vscode12.workspace.fs.readFile(localFileUri);
     const content = Buffer.from(contentBytes).toString("utf8");
     await provider.writeFile(target.remoteFilePath, content);
     remoteDiffDocumentProvider.refresh(localFileUri);
-    await vscode11.window.showInformationMessage(`Uploaded ${target.relativePath} to ${target.remoteFilePath}.`);
+    await vscode12.window.showInformationMessage(`Uploaded ${target.relativePath} to ${target.remoteFilePath}.`);
   });
 }
 
 // src/status/deploymentStatusIndicator.ts
-var vscode12 = __toESM(require("vscode"));
+var vscode13 = __toESM(require("vscode"));
 var DeploymentStatusIndicator = class {
   constructor(remoteDiffDocumentProvider) {
     this.remoteDiffDocumentProvider = remoteDiffDocumentProvider;
@@ -602,9 +1029,9 @@ var DeploymentStatusIndicator = class {
     this.statusBarItem.command = "deploydiff.compareWithDeployedVersion";
     this.update();
   }
-  statusBarItem = vscode12.window.createStatusBarItem(vscode12.StatusBarAlignment.Left, 100);
+  statusBarItem = vscode13.window.createStatusBarItem(vscode13.StatusBarAlignment.Left, 100);
   update() {
-    const activeUri = vscode12.window.activeTextEditor?.document.uri;
+    const activeUri = vscode13.window.activeTextEditor?.document.uri;
     if (!activeUri || activeUri.scheme !== "file" && !isRemoteDocumentUri(activeUri)) {
       this.statusBarItem.hide();
       return;
@@ -633,19 +1060,21 @@ function activate(context) {
   const deploymentStatusIndicator = new DeploymentStatusIndicator(remoteDiffDocumentProvider);
   context.subscriptions.push(
     deploymentStatusIndicator,
-    vscode13.window.onDidChangeActiveTextEditor(() => deploymentStatusIndicator.update()),
-    vscode13.workspace.onDidChangeConfiguration((event) => {
+    vscode14.window.onDidChangeActiveTextEditor(() => deploymentStatusIndicator.update()),
+    vscode14.workspace.onDidChangeConfiguration((event) => {
       if (event.affectsConfiguration("deploydiff")) {
         deploymentStatusIndicator.update();
       }
     }),
-    vscode13.workspace.registerTextDocumentContentProvider(
+    vscode14.workspace.registerTextDocumentContentProvider(
       DEPLOYDIFF_REMOTE_DOCUMENT_SCHEME,
       remoteDiffDocumentProvider
     ),
     registerCompareWithDeployedCommand(remoteDiffDocumentProvider),
     registerUploadToRemoteCommand(context, remoteDiffDocumentProvider),
     registerDownloadFromRemoteCommand(context, remoteDiffDocumentProvider),
+    registerApplyHunkToRemoteCommand(context, remoteDiffDocumentProvider),
+    registerApplyHunkToLocalCommand(context, remoteDiffDocumentProvider),
     registerRefreshDeployedVersionCommand(remoteDiffDocumentProvider),
     registerSetSftpPasswordCommand(context),
     registerClearSftpPasswordCommand(context)

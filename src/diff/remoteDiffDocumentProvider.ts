@@ -67,6 +67,10 @@ export class RemoteDiffDocumentProvider implements vscode.TextDocumentContentPro
     return this.metadataCache.get(createRemoteDocumentUri(localFileUri).toString());
   }
 
+  public getCachedContent(localFileUri: vscode.Uri): string | undefined {
+    return this.cache.get(createRemoteDocumentUri(localFileUri).toString());
+  }
+
   private async loadRemoteState(uri: vscode.Uri): Promise<RemoteFileMetadata> {
     const localFileUri = getLocalFileUriFromRemoteDocumentUri(uri);
     const target = resolveDeploymentTarget(localFileUri);

@@ -60,6 +60,16 @@
         "command": "deploydiff.refreshDeployedVersion",
         "title": "Refresh Deployed Version",
         "category": "DeployDiff"
+      },
+      {
+        "command": "deploydiff.applyHunkToRemote",
+        "title": "Apply Hunk to Remote",
+        "category": "DeployDiff"
+      },
+      {
+        "command": "deploydiff.applyHunkToLocal",
+        "title": "Apply Hunk to Local",
+        "category": "DeployDiff"
       }
     ],
     "menus": {
@@ -105,6 +115,28 @@
           "command": "deploydiff.refreshDeployedVersion",
           "when": "resourceScheme == file || resourceScheme == deploydiff-remote",
           "group": "navigation@23"
+        },
+        {
+          "command": "deploydiff.applyHunkToRemote",
+          "when": "isInDiffEditor",
+          "group": "navigation@24"
+        },
+        {
+          "command": "deploydiff.applyHunkToLocal",
+          "when": "isInDiffEditor",
+          "group": "navigation@25"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "deploydiff.applyHunkToRemote",
+          "when": "isInDiffEditor",
+          "group": "navigation@20"
+        },
+        {
+          "command": "deploydiff.applyHunkToLocal",
+          "when": "isInDiffEditor",
+          "group": "navigation@21"
         }
       ]
     },
@@ -198,6 +230,7 @@
     "package": "vsce package"
   },
   "dependencies": {
+    "diff": "^8.0.4",
     "ssh2-sftp-client": "^12.1.1"
   },
   "devDependencies": {

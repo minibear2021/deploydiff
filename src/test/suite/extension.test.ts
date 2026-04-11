@@ -2,6 +2,7 @@ import * as assert from 'node:assert';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
 import { parseDeploymentMapping } from '../../config/deploymentConfiguration';
+import { computeDiffHunks, extractLines, replaceLinesInText } from '../../diff/hunks';
 import { DeploymentMapping, resolveMappingForFile, toRemoteFilePath } from '../../deployment/mapping';
 import {
   createRemoteDocumentUri,
@@ -76,6 +77,24 @@ suite('Remote diff document URI', () => {
     assert.equal(remoteUri.scheme, DEPLOYDIFF_REMOTE_DOCUMENT_SCHEME);
     assert.equal(isRemoteDocumentUri(remoteUri), true);
     assert.equal(getLocalFileUriFromRemoteDocumentUri(remoteUri).toString(), localUri.toString());
+  });
+});
+
+suite('Diff hunks', () => {
+  test('computes changed hunks for replaced and inserted lines', () => {
+    const hunks = computeDiffHunks('a\nb\nc\n', 'a\nB\nc\nd\n');
+
+    assert.deepEqual(hunks, [
+      { localStartLine: 1, localEndLine: 2, remoteStartLine: 1, remoteEndLine: 2 },
+      { localStartLine: 3, localEndLine: 3, remoteStartLine: 3, remoteEndLine: 4 }
+    ]);
+  });
+
+  test('replaces a target line range with a hunk payload', () => {
+    const updated = replaceLinesInText('a\nb\nc\n', 1, 2, 'B\n');
+
+    assert.equal(updated, 'a\nB\nc\n');
+    assert.equal(extractLines(updated, 1, 2), 'B\n');
   });
 });
 
@@ -161,6 +180,8 @@ suite('Extension bootstrap', () => {
     assert.ok(commands.includes('deploydiff.setSftpPassword'));
     assert.ok(commands.includes('deploydiff.clearSftpPassword'));
     assert.ok(commands.includes('deploydiff.refreshDeployedVersion'));
+    assert.ok(commands.includes('deploydiff.applyHunkToRemote'));
+    assert.ok(commands.includes('deploydiff.applyHunkToLocal'));
   });
 });
 
