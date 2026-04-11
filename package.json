@@ -5,11 +5,28 @@
   "version": "0.0.1",
   "publisher": "chen",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/minibear2021/deploydiff.git"
+  },
+  "homepage": "https://github.com/minibear2021/deploydiff",
+  "bugs": {
+    "url": "https://github.com/minibear2021/deploydiff/issues"
+  },
   "engines": {
     "vscode": "^1.100.0"
   },
   "categories": [
-    "Other"
+    "Other",
+    "SCM Providers"
+  ],
+  "keywords": [
+    "deployment",
+    "diff",
+    "sftp",
+    "remote",
+    "sync",
+    "compare"
   ],
   "main": "./out/extension.js",
   "contributes": {
