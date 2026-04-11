@@ -4,6 +4,7 @@ import { SftpRemoteFileProvider } from './SftpRemoteFileProvider';
 import { getSftpConnectionOptions } from './sftpConfiguration';
 
 export interface RemoteFileProvider {
+  exists(remotePath: string): Promise<boolean>;
   readFile(remotePath: string): Promise<string>;
   writeFile(remotePath: string, content: string): Promise<void>;
 }

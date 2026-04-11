@@ -12,6 +12,7 @@ import {
 import { getRemoteParentDirectory } from '../../remote/SftpRemoteFileProvider';
 import { DEPLOYDIFF_SFTP_PASSWORD_SECRET_KEY, getSftpConnectionOptions } from '../../remote/sftpConfiguration';
 import { DeployDiffExtensionApi } from '../../extension';
+import { MockRemoteFileProvider } from '../../remote/MockRemoteFileProvider';
 
 function createWorkspaceFolder(fsPath: string): vscode.WorkspaceFolder {
   return {
@@ -84,6 +85,27 @@ suite('SFTP path helpers', () => {
   });
 });
 
+suite('Mock remote provider', () => {
+  test('reports file existence from workspace configuration', async () => {
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    assert.ok(workspaceFolder);
+
+    const configuration = vscode.workspace.getConfiguration('deploydiff', workspaceFolder.uri);
+    await configuration.update(
+      'mockRemoteFiles',
+      {
+        '/var/www/app/src/example.ts': 'remote-content'
+      },
+      vscode.ConfigurationTarget.WorkspaceFolder
+    );
+
+    const provider = new MockRemoteFileProvider(workspaceFolder);
+
+    assert.equal(await provider.exists('/var/www/app/src/example.ts'), true);
+    assert.equal(await provider.exists('/var/www/app/src/missing.ts'), false);
+  });
+});
+
 suite('Extension bootstrap', () => {
   test('commands are registered', async () => {
     const extension = vscode.extensions.getExtension('chen.deploydiff');
@@ -98,6 +120,7 @@ suite('Extension bootstrap', () => {
     assert.ok(commands.includes('deploydiff.downloadFromRemote'));
     assert.ok(commands.includes('deploydiff.setSftpPassword'));
     assert.ok(commands.includes('deploydiff.clearSftpPassword'));
+    assert.ok(commands.includes('deploydiff.refreshDeployedVersion'));
   });
 });
 

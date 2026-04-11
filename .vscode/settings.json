@@ -2,5 +2,8 @@
     "deploydiff.sftp.host": "example.com",
     "deploydiff.sftp.port": 2222,
     "deploydiff.sftp.username": "deploy",
-    "deploydiff.sftp.privateKeyPath": ""
+    "deploydiff.sftp.privateKeyPath": "",
+    "deploydiff.mockRemoteFiles": {
+        "/var/www/app/src/example.ts": "remote-content"
+    }
 }

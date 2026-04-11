@@ -5,6 +5,7 @@ import {
   registerClearSftpPasswordCommand,
   registerSetSftpPasswordCommand
 } from './commands/manageSftpPassword';
+import { registerRefreshDeployedVersionCommand } from './commands/refreshDeployedVersion';
 import { registerUploadToRemoteCommand } from './commands/uploadToRemote';
 import {
   DEPLOYDIFF_REMOTE_DOCUMENT_SCHEME,
@@ -23,9 +24,10 @@ export function activate(context: vscode.ExtensionContext): DeployDiffExtensionA
       DEPLOYDIFF_REMOTE_DOCUMENT_SCHEME,
       remoteDiffDocumentProvider
     ),
-    registerCompareWithDeployedCommand(),
+    registerCompareWithDeployedCommand(remoteDiffDocumentProvider),
     registerUploadToRemoteCommand(context, remoteDiffDocumentProvider),
     registerDownloadFromRemoteCommand(context, remoteDiffDocumentProvider),
+    registerRefreshDeployedVersionCommand(remoteDiffDocumentProvider),
     registerSetSftpPasswordCommand(context),
     registerClearSftpPasswordCommand(context)
   );

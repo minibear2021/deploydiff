@@ -27,23 +27,49 @@ export function getLocalFileUriFromRemoteDocumentUri(remoteUri: vscode.Uri): vsc
 
 export class RemoteDiffDocumentProvider implements vscode.TextDocumentContentProvider {
   private readonly didChangeEmitter = new vscode.EventEmitter<vscode.Uri>();
+  private readonly cache = new Map<string, string>();
 
   public constructor(private readonly secrets: vscode.SecretStorage) {}
 
   public readonly onDidChange = this.didChangeEmitter.event;
 
   public async provideTextDocumentContent(uri: vscode.Uri): Promise<string> {
-    const localFileUri = getLocalFileUriFromRemoteDocumentUri(uri);
-    const target = resolveDeploymentTarget(localFileUri);
-    const provider = await createRemoteFileProvider(target.workspaceFolder, this.secrets);
-    return provider.readFile(target.remoteFilePath);
+    const cached = this.cache.get(uri.toString());
+    if (cached !== undefined) {
+      return cached;
+    }
+
+    return this.loadRemoteContent(uri);
+  }
+
+  public async preload(localFileUri: vscode.Uri): Promise<void> {
+    const remoteUri = createRemoteDocumentUri(localFileUri);
+    const content = await this.loadRemoteContent(remoteUri);
+    this.cache.set(remoteUri.toString(), content);
   }
 
   public refresh(localFileUri: vscode.Uri): void {
-    this.didChangeEmitter.fire(createRemoteDocumentUri(localFileUri));
+    const remoteUri = createRemoteDocumentUri(localFileUri);
+    this.cache.delete(remoteUri.toString());
+    this.didChangeEmitter.fire(remoteUri);
   }
 
   public dispose(): void {
+    this.cache.clear();
     this.didChangeEmitter.dispose();
+  }
+
+  private async loadRemoteContent(uri: vscode.Uri): Promise<string> {
+    const localFileUri = getLocalFileUriFromRemoteDocumentUri(uri);
+    const target = resolveDeploymentTarget(localFileUri);
+    const provider = await createRemoteFileProvider(target.workspaceFolder, this.secrets);
+
+    if (!(await provider.exists(target.remoteFilePath))) {
+      throw new Error(`No deployed file exists at ${target.remoteFilePath}.`);
+    }
+
+    const content = await provider.readFile(target.remoteFilePath);
+    this.cache.set(uri.toString(), content);
+    return content;
   }
 }

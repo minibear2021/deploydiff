@@ -1,14 +1,14 @@
 import * as vscode from 'vscode';
 import { getOrResolveResourceUri } from '../config/deploymentConfiguration';
-import { openDeployedDiff } from '../diff/openDeployedDiff';
 import { RemoteDiffDocumentProvider } from '../diff/remoteDiffDocumentProvider';
 import { registerDeployCommand } from './runDeployCommand';
 
-export function registerCompareWithDeployedCommand(
+export function registerRefreshDeployedVersionCommand(
   remoteDiffDocumentProvider: RemoteDiffDocumentProvider
 ): vscode.Disposable {
-  return registerDeployCommand('deploydiff.compareWithDeployedVersion', async (resource?: vscode.Uri) => {
+  return registerDeployCommand('deploydiff.refreshDeployedVersion', async (resource?: vscode.Uri) => {
     const localFileUri = getOrResolveResourceUri(resource);
-    await openDeployedDiff(localFileUri, remoteDiffDocumentProvider);
+    await remoteDiffDocumentProvider.preload(localFileUri);
+    remoteDiffDocumentProvider.refresh(localFileUri);
   });
 }
