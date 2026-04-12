@@ -1,7 +1,7 @@
 import { PassThrough, Readable } from 'node:stream';
-import { Client } from 'basic-ftp';
+import { Client, FileType } from 'basic-ftp';
 import { enterPassiveModeIPv4_forceControlHostIP } from 'basic-ftp/dist/transfer';
-import { RemoteFileMetadata, RemoteFileProvider } from './RemoteFileProvider';
+import { RemoteDirectoryEntry, RemoteFileMetadata, RemoteFileProvider } from './RemoteFileProvider';
 import { FtpConnectionOptions } from './ftpConfiguration';
 import { getRemoteFileName, getRemoteParentDirectory } from './remotePath';
 
@@ -32,14 +32,40 @@ export class FtpRemoteFileProvider implements RemoteFileProvider {
     });
   }
 
+  public async listDirectory(remotePath: string): Promise<RemoteDirectoryEntry[]> {
+    return this.withClient(async (client) => {
+      const entries = await client.list(remotePath);
+      return entries.map((entry) => ({
+        name: entry.name,
+        type: entry.isDirectory || entry.type === FileType.Directory ? 'directory' : 'file',
+        size: entry.size,
+        modifiedAt: entry.modifiedAt
+      }));
+    });
+  }
+
   public async stat(remotePath: string): Promise<RemoteFileMetadata> {
     return this.withClient(async (client) => {
-      const size = await client.size(remotePath);
-      const modifiedAt = await client.lastMod(remotePath).catch(() => undefined);
+      if (remotePath === '/') {
+        return {
+          type: 'directory',
+          size: 0
+        };
+      }
+
+      const parentDirectory = getRemoteParentDirectory(remotePath);
+      const fileName = getRemoteFileName(remotePath);
+      const entries = await client.list(parentDirectory);
+      const entry = entries.find((item) => item.name === fileName);
+
+      if (!entry) {
+        throw new Error(`DeployDiff FTP could not find ${remotePath}.`);
+      }
 
       return {
-        size,
-        modifiedAt
+        type: entry.isDirectory || entry.type === FileType.Directory ? 'directory' : 'file',
+        size: entry.size,
+        modifiedAt: entry.modifiedAt
       };
     });
   }

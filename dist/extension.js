@@ -408,17 +408,17 @@ var require_FileInfo = __commonJS({
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.FileInfo = exports2.FileType = void 0;
-    var FileType3;
-    (function(FileType4) {
-      FileType4[FileType4["Unknown"] = 0] = "Unknown";
-      FileType4[FileType4["File"] = 1] = "File";
-      FileType4[FileType4["Directory"] = 2] = "Directory";
-      FileType4[FileType4["SymbolicLink"] = 3] = "SymbolicLink";
-    })(FileType3 || (exports2.FileType = FileType3 = {}));
+    var FileType4;
+    (function(FileType5) {
+      FileType5[FileType5["Unknown"] = 0] = "Unknown";
+      FileType5[FileType5["File"] = 1] = "File";
+      FileType5[FileType5["Directory"] = 2] = "Directory";
+      FileType5[FileType5["SymbolicLink"] = 3] = "SymbolicLink";
+    })(FileType4 || (exports2.FileType = FileType4 = {}));
     var FileInfo = class {
       constructor(name) {
         this.name = name;
-        this.type = FileType3.Unknown;
+        this.type = FileType4.Unknown;
         this.size = 0;
         this.rawModifiedAt = "";
         this.modifiedAt = void 0;
@@ -431,13 +431,13 @@ var require_FileInfo = __commonJS({
         this.name = name;
       }
       get isDirectory() {
-        return this.type === FileType3.Directory;
+        return this.type === FileType4.Directory;
       }
       get isSymbolicLink() {
-        return this.type === FileType3.SymbolicLink;
+        return this.type === FileType4.SymbolicLink;
       }
       get isFile() {
-        return this.type === FileType3.File;
+        return this.type === FileType4.File;
       }
       /**
        * Deprecated, legacy API. Use `rawModifiedAt` instead.
@@ -2140,13 +2140,36 @@ var FtpRemoteFileProvider = class {
       }
     });
   }
+  async listDirectory(remotePath) {
+    return this.withClient(async (client) => {
+      const entries = await client.list(remotePath);
+      return entries.map((entry) => ({
+        name: entry.name,
+        type: entry.isDirectory || entry.type === import_basic_ftp.FileType.Directory ? "directory" : "file",
+        size: entry.size,
+        modifiedAt: entry.modifiedAt
+      }));
+    });
+  }
   async stat(remotePath) {
     return this.withClient(async (client) => {
-      const size = await client.size(remotePath);
-      const modifiedAt = await client.lastMod(remotePath).catch(() => void 0);
+      if (remotePath === "/") {
+        return {
+          type: "directory",
+          size: 0
+        };
+      }
+      const parentDirectory = getRemoteParentDirectory(remotePath);
+      const fileName = getRemoteFileName(remotePath);
+      const entries = await client.list(parentDirectory);
+      const entry = entries.find((item) => item.name === fileName);
+      if (!entry) {
+        throw new Error(`DeployDiff FTP could not find ${remotePath}.`);
+      }
       return {
-        size,
-        modifiedAt
+        type: entry.isDirectory || entry.type === import_basic_ftp.FileType.Directory ? "directory" : "file",
+        size: entry.size,
+        modifiedAt: entry.modifiedAt
       };
     });
   }
@@ -2280,32 +2303,84 @@ var MockRemoteFileProvider = class {
     return Promise.resolve();
   }
   exists(remotePath) {
-    return Promise.resolve(this.getRemoteFiles()[remotePath] !== void 0);
+    const files = this.getRemoteFiles();
+    const normalizedPath = normalizeRemotePath(remotePath);
+    return Promise.resolve(
+      files[normalizedPath] !== void 0 || Object.keys(files).some((key) => key.startsWith(`${normalizedPath}/`))
+    );
+  }
+  listDirectory(remotePath) {
+    const files = this.getRemoteFiles();
+    const normalizedPath = normalizeRemotePath(remotePath);
+    const prefix = normalizedPath === "/" ? "/" : `${normalizedPath}/`;
+    const entries = /* @__PURE__ */ new Map();
+    for (const [filePath, content] of Object.entries(files)) {
+      if (!filePath.startsWith(prefix) || filePath === normalizedPath) {
+        continue;
+      }
+      const remainder = filePath.slice(prefix.length);
+      const [firstSegment, ...rest] = remainder.split("/");
+      if (!firstSegment) {
+        continue;
+      }
+      if (rest.length === 0) {
+        entries.set(firstSegment, {
+          name: firstSegment,
+          type: "file",
+          size: Buffer.byteLength(content, "utf8")
+        });
+        continue;
+      }
+      if (!entries.has(firstSegment)) {
+        entries.set(firstSegment, {
+          name: firstSegment,
+          type: "directory",
+          size: 0
+        });
+      }
+    }
+    return Promise.resolve([...entries.values()].sort((left, right) => left.name.localeCompare(right.name)));
   }
   stat(remotePath) {
-    const content = this.getRemoteFiles()[remotePath];
+    const files = this.getRemoteFiles();
+    const normalizedPath = normalizeRemotePath(remotePath);
+    const content = files[normalizedPath];
+    if (content !== void 0) {
+      return Promise.resolve({
+        type: "file",
+        size: Buffer.byteLength(content, "utf8")
+      });
+    }
+    if (Object.keys(files).some((key) => key.startsWith(`${normalizedPath}/`))) {
+      return Promise.resolve({
+        type: "directory",
+        size: 0
+      });
+    }
+    if (normalizedPath === "/" && Object.keys(files).length > 0) {
+      return Promise.resolve({
+        type: "directory",
+        size: 0
+      });
+    }
+    return Promise.reject(
+      new Error(`Mock remote file not found for ${remotePath}. Add deploydiff.mockRemoteFiles in workspace settings.`)
+    );
+  }
+  readFile(remotePath) {
+    const files = this.getRemoteFiles();
+    const normalizedPath = normalizeRemotePath(remotePath);
+    const content = files[normalizedPath];
     if (content === void 0) {
       return Promise.reject(
         new Error(`Mock remote file not found for ${remotePath}. Add deploydiff.mockRemoteFiles in workspace settings.`)
       );
     }
-    return Promise.resolve({
-      size: Buffer.byteLength(content, "utf8")
-    });
-  }
-  readFile(remotePath) {
-    const files = this.getRemoteFiles();
-    const content = files[remotePath];
-    if (content === void 0) {
-      return Promise.reject(new Error(
-        `Mock remote file not found for ${remotePath}. Add deploydiff.mockRemoteFiles in workspace settings.`
-      ));
-    }
     return Promise.resolve(content);
   }
   async writeFile(remotePath, content) {
     const files = this.getRemoteFiles();
-    files[remotePath] = content;
+    files[normalizeRemotePath(remotePath)] = content;
     const configuration = vscode2.workspace.getConfiguration("deploydiff", this.workspaceFolder.uri);
     await configuration.update("mockRemoteFiles", files, vscode2.ConfigurationTarget.WorkspaceFolder);
   }
@@ -2316,6 +2391,13 @@ var MockRemoteFileProvider = class {
     };
   }
 };
+function normalizeRemotePath(remotePath) {
+  const normalizedPath = remotePath.replace(/\/+/g, "/");
+  if (normalizedPath === "/") {
+    return "/";
+  }
+  return normalizedPath.replace(/\/+$/, "");
+}
 
 // src/remote/SftpRemoteFileProvider.ts
 var import_ssh2_sftp_client = __toESM(require("ssh2-sftp-client"));
@@ -2331,10 +2413,23 @@ var SftpRemoteFileProvider = class {
   async exists(remotePath) {
     return this.withClient(async (client) => Boolean(await client.exists(remotePath)));
   }
+  async listDirectory(remotePath) {
+    return this.withClient(async (client) => {
+      const entries = await client.list(remotePath);
+      return entries.map((entry) => ({
+        name: entry.name,
+        type: entry.type === "d" ? "directory" : "file",
+        size: entry.size,
+        modifiedAt: typeof entry.modifyTime === "number" ? new Date(entry.modifyTime) : void 0
+      }));
+    });
+  }
   async stat(remotePath) {
     return this.withClient(async (client) => {
       const stats = await client.stat(remotePath);
+      const entryType = await client.exists(remotePath);
       return {
+        type: entryType === "d" ? "directory" : "file",
         size: stats.size,
         modifiedAt: typeof stats.modifyTime === "number" ? new Date(stats.modifyTime) : void 0
       };
@@ -2714,9 +2809,11 @@ function registerDownloadFromRemoteCommand(context, remoteDiffDocumentProvider) 
     const configuration = vscode10.workspace.getConfiguration("deploydiff", target.workspaceFolder.uri);
     const confirmSync = configuration.get("confirmSync", true);
     const provider = await createRemoteFileProvider(target.workspaceFolder, context.secrets);
+    const remoteMetadata = await provider.stat(target.remoteFilePath);
+    const isDirectory = remoteMetadata.type === "directory";
     if (confirmSync) {
       const answer = await vscode10.window.showWarningMessage(
-        `Replace local file ${target.relativePath} with the deployed version from ${target.mapping.remoteRoot}?`,
+        isDirectory ? `Replace local directory ${target.relativePath || "."} with the deployed contents from ${target.remoteFilePath}?` : `Replace local file ${target.relativePath} with the deployed version from ${target.mapping.remoteRoot}?`,
         { modal: true },
         "Download"
       );
@@ -2724,17 +2821,50 @@ function registerDownloadFromRemoteCommand(context, remoteDiffDocumentProvider) 
         return;
       }
     }
-    const localStat = await vscode10.workspace.fs.stat(localFileUri);
-    const remoteMetadata = await provider.stat(target.remoteFilePath);
-    const conflictMessage = detectSyncConflict("download", new Date(localStat.mtime), remoteMetadata);
-    if (conflictMessage && !await confirmSyncConflict("download", conflictMessage, target.relativePath)) {
+    if (isDirectory) {
+      const summary = { filesDownloaded: 0, directoriesCreated: 0 };
+      await downloadDirectoryFromRemote(localFileUri, target.remoteFilePath, provider, summary);
+      await vscode10.window.showInformationMessage(
+        `Downloaded ${summary.filesDownloaded} file(s) from ${target.remoteFilePath} to ${target.relativePath || "."}.`
+      );
       return;
     }
-    const content = await provider.readFile(target.remoteFilePath);
-    await vscode10.workspace.fs.writeFile(localFileUri, Buffer.from(content, "utf8"));
+    await downloadFileFromRemote(localFileUri, target.remoteFilePath, provider, target.relativePath);
     remoteDiffDocumentProvider.refresh(localFileUri);
     await vscode10.window.showInformationMessage(`Downloaded ${target.remoteFilePath} to ${target.relativePath}.`);
   });
+}
+async function downloadDirectoryFromRemote(localDirectoryUri, remoteDirectoryPath, provider, summary) {
+  await vscode10.workspace.fs.createDirectory(localDirectoryUri);
+  summary.directoriesCreated += 1;
+  const entries = await provider.listDirectory(remoteDirectoryPath);
+  for (const entry of entries) {
+    const childLocalUri = vscode10.Uri.joinPath(localDirectoryUri, entry.name);
+    const childRemotePath = joinRemotePath2(remoteDirectoryPath, entry.name);
+    if (entry.type === "directory") {
+      await downloadDirectoryFromRemote(childLocalUri, childRemotePath, provider, summary);
+      continue;
+    }
+    await downloadFileFromRemote(childLocalUri, childRemotePath, provider, entry.name);
+    summary.filesDownloaded += 1;
+  }
+}
+async function downloadFileFromRemote(localFileUri, remoteFilePath, provider, label) {
+  let localStat;
+  try {
+    localStat = await vscode10.workspace.fs.stat(localFileUri);
+  } catch {
+    localStat = void 0;
+  }
+  if (localStat) {
+    const remoteMetadata = await provider.stat(remoteFilePath);
+    const conflictMessage = detectSyncConflict("download", new Date(localStat.mtime), remoteMetadata);
+    if (conflictMessage && !await confirmSyncConflict("download", conflictMessage, label)) {
+      return;
+    }
+  }
+  const content = await provider.readFile(remoteFilePath);
+  await vscode10.workspace.fs.writeFile(localFileUri, Buffer.from(content, "utf8"));
 }
 
 // src/commands/manageFtpPassword.ts

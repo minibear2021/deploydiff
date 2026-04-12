@@ -117,7 +117,7 @@ suite('Sync conflict detection', () => {
     const result = detectSyncConflict(
       'upload',
       new Date('2026-04-11T10:00:00.000Z'),
-      { size: 10, modifiedAt: new Date('2026-04-11T11:00:00.000Z') }
+      { type: 'file', size: 10, modifiedAt: new Date('2026-04-11T11:00:00.000Z') }
     );
 
     assert.match(result ?? '', /deployed file was modified after the local file/i);
@@ -127,14 +127,14 @@ suite('Sync conflict detection', () => {
     const result = detectSyncConflict(
       'download',
       new Date('2026-04-11T12:00:00.000Z'),
-      { size: 10, modifiedAt: new Date('2026-04-11T11:00:00.000Z') }
+      { type: 'file', size: 10, modifiedAt: new Date('2026-04-11T11:00:00.000Z') }
     );
 
     assert.match(result ?? '', /local file was modified after the deployed file/i);
   });
 
   test('ignores conflicts when remote modified time is unavailable', () => {
-    const result = detectSyncConflict('upload', new Date('2026-04-11T12:00:00.000Z'), { size: 10 });
+    const result = detectSyncConflict('upload', new Date('2026-04-11T12:00:00.000Z'), { type: 'file', size: 10 });
 
     assert.equal(result, undefined);
   });
@@ -169,6 +169,31 @@ suite('Mock remote provider', () => {
 
     assert.equal(metadata.size, Buffer.byteLength('remote-content', 'utf8'));
     assert.equal(metadata.modifiedAt, undefined);
+    assert.equal(metadata.type, 'file');
+  });
+
+  test('treats prefixed paths as remote directories and lists their children', async () => {
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    assert.ok(workspaceFolder);
+
+    const configuration = vscode.workspace.getConfiguration('deploydiff', workspaceFolder.uri);
+    await configuration.update(
+      'mockRemoteFiles',
+      {
+        '/var/www/app/src/example.ts': 'remote-content',
+        '/var/www/app/src/features/one.ts': 'one',
+        '/var/www/app/src/features/two.ts': 'two'
+      },
+      vscode.ConfigurationTarget.WorkspaceFolder
+    );
+
+    const provider = new MockRemoteFileProvider(workspaceFolder);
+    const metadata = await provider.stat('/var/www/app/src/features');
+    const entries = await provider.listDirectory('/var/www/app/src/features');
+
+    assert.equal(metadata.type, 'directory');
+    assert.deepEqual(entries.map((entry) => entry.name), ['one.ts', 'two.ts']);
+    assert.ok(entries.every((entry) => entry.type === 'file'));
   });
 });
 

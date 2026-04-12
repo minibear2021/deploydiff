@@ -1,5 +1,5 @@
 import SftpClient from 'ssh2-sftp-client';
-import { RemoteFileMetadata, RemoteFileProvider } from './RemoteFileProvider';
+import { RemoteDirectoryEntry, RemoteFileMetadata, RemoteFileProvider } from './RemoteFileProvider';
 import { getRemoteParentDirectory } from './remotePath';
 import { SftpConnectionOptions } from './sftpConfiguration';
 
@@ -16,11 +16,25 @@ export class SftpRemoteFileProvider implements RemoteFileProvider {
     return this.withClient(async (client) => Boolean(await client.exists(remotePath)));
   }
 
+  public async listDirectory(remotePath: string): Promise<RemoteDirectoryEntry[]> {
+    return this.withClient(async (client) => {
+      const entries = await client.list(remotePath);
+      return entries.map((entry) => ({
+        name: entry.name,
+        type: entry.type === 'd' ? 'directory' : 'file',
+        size: entry.size,
+        modifiedAt: typeof entry.modifyTime === 'number' ? new Date(entry.modifyTime) : undefined
+      }));
+    });
+  }
+
   public async stat(remotePath: string): Promise<RemoteFileMetadata> {
     return this.withClient(async (client) => {
       const stats = await client.stat(remotePath);
+      const entryType = await client.exists(remotePath);
 
       return {
+        type: entryType === 'd' ? 'directory' : 'file',
         size: stats.size,
         modifiedAt: typeof stats.modifyTime === 'number' ? new Date(stats.modifyTime) : undefined
       };

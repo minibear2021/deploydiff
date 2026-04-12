@@ -6,6 +6,14 @@ import { SftpRemoteFileProvider } from './SftpRemoteFileProvider';
 import { getSftpConnectionOptions } from './sftpConfiguration';
 
 export type RemoteFileMetadata = {
+  type: 'file' | 'directory';
+  size: number;
+  modifiedAt?: Date;
+};
+
+export type RemoteDirectoryEntry = {
+  name: string;
+  type: 'file' | 'directory';
   size: number;
   modifiedAt?: Date;
 };
@@ -13,6 +21,7 @@ export type RemoteFileMetadata = {
 export interface RemoteFileProvider {
   createDirectory(remotePath: string): Promise<void>;
   exists(remotePath: string): Promise<boolean>;
+  listDirectory(remotePath: string): Promise<RemoteDirectoryEntry[]>;
   stat(remotePath: string): Promise<RemoteFileMetadata>;
   readFile(remotePath: string): Promise<string>;
   writeFile(remotePath: string, content: string): Promise<void>;
