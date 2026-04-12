@@ -19,16 +19,23 @@ Compare local files against deployed remote versions and sync changes in either 
 ## Quick Start
 
 1. Install the extension from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=minibear2021.deploydiff).
-2. Open your workspace settings and add a deployment mapping:
+2. Open your workspace settings and configure a transport plus one or more deployment mappings.
+
+FTP example:
 
 ```json
 {
   "deploydiff.transport": "ftp",
   "deploydiff.mappings": [
     {
-      "name": "app",
+      "name": "app-src",
       "localPath": "src",
       "remotePath": "/var/www/app/src"
+    },
+    {
+      "name": "app-assets",
+      "localPath": "public",
+      "remotePath": "/var/www/app/public"
     }
   ],
   "deploydiff.ftp.host": "example.com",
@@ -40,7 +47,31 @@ Compare local files against deployed remote versions and sync changes in either 
 }
 ```
 
-3. For FTP password auth, run **DeployDiff: Set FTP Password**. For SFTP password auth, run **DeployDiff: Set SFTP Password**.
+SFTP example:
+
+```json
+{
+  "deploydiff.transport": "sftp",
+  "deploydiff.mappings": [
+    {
+      "name": "backend-src",
+      "localPath": "packages/backend/src",
+      "remotePath": "/srv/backend/src"
+    },
+    {
+      "name": "frontend-dist",
+      "localPath": "packages/frontend/dist",
+      "remotePath": "/srv/frontend/dist"
+    }
+  ],
+  "deploydiff.sftp.host": "example.com",
+  "deploydiff.sftp.port": 22,
+  "deploydiff.sftp.username": "deploy",
+  "deploydiff.sftp.privateKeyPath": "~/.ssh/id_ed25519"
+}
+```
+
+3. For FTP password auth, run **DeployDiff: Set FTP Password**. For SFTP password auth, run **DeployDiff: Set SFTP Password** if you are not using `deploydiff.sftp.privateKeyPath`.
 4. Right-click a file in the Explorer → **Compare with Deployed Version**.
 5. To sync directly, right-click a file or directory and use **Upload to Remote** or **Download from Remote**.
 6. In the diff editor, use the swap button (↔) to flip sides, then **Revert Block** to push changes left or right. The status bar shows the current direction.
