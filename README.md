@@ -11,8 +11,8 @@ Compare local files against deployed remote versions and sync changes in either 
 - **Compare with Deployed Version** — Open VS Code's built-in diff editor to see line-level differences between any local file and its deployed counterpart.
 - **Bidirectional sync** — Swap the diff sides and use VS Code's native Revert Block to push changes in either direction. A status bar indicator always shows which side is local and which is remote.
 - **Writable remote pane** — Edit the remote side directly in the diff editor; saving writes back to the server.
-- **Upload / Download** — Explicit one-click commands from the explorer or editor context menu with conflict detection.
-- **FTP and SFTP transports** — FTP supports password auth, and SFTP supports password or private-key auth. Passwords are stored in VS Code Secret Storage, never in settings files.
+- **Upload / Download for files and directories** — Explicit one-click sync commands from the explorer or editor context menu with conflict detection. Directory sync works recursively.
+- **FTP and SFTP transports** — FTP supports password auth plus explicit or implicit FTPS options, and SFTP supports password or private-key auth. Passwords are stored in VS Code Secret Storage, never in settings files.
 - **Multiple mappings** — Map several local directories to different remote roots within the same workspace.
 - **Actionable errors** — Missing configuration? Error toasts include quick-fix buttons like "Open Settings" or "Set Password".
 
@@ -42,15 +42,16 @@ Compare local files against deployed remote versions and sync changes in either 
 
 3. For FTP password auth, run **DeployDiff: Set FTP Password**. For SFTP password auth, run **DeployDiff: Set SFTP Password**.
 4. Right-click a file in the Explorer → **Compare with Deployed Version**.
-5. In the diff editor, use the swap button (↔) to flip sides, then **Revert Block** to push changes left or right. The status bar shows the current direction.
+5. To sync directly, right-click a file or directory and use **Upload to Remote** or **Download from Remote**.
+6. In the diff editor, use the swap button (↔) to flip sides, then **Revert Block** to push changes left or right. The status bar shows the current direction.
 
 ## Commands
 
 | Command | Description |
 |---|---|
 | `DeployDiff: Compare with Deployed Version` | Open a diff between the local file and its deployed remote copy |
-| `DeployDiff: Upload to Remote` | Push the local file to the remote server |
-| `DeployDiff: Download from Remote` | Pull the remote file to the local workspace |
+| `DeployDiff: Upload to Remote` | Push the selected local file or directory to the remote server |
+| `DeployDiff: Download from Remote` | Pull the remote file or directory to the local workspace |
 | `DeployDiff: Set FTP Password` | Store the FTP password in VS Code Secret Storage |
 | `DeployDiff: Clear FTP Password` | Remove the stored FTP password |
 | `DeployDiff: Set SFTP Password` | Store the SFTP password in VS Code Secret Storage |
@@ -84,6 +85,12 @@ FTP notes:
 
 - `deploydiff.ftp.securityMode = implicit` enables legacy implicit FTPS for servers that do not support explicit TLS negotiation.
 - DeployDiff uses passive FTP transfers. `deploydiff.ftp.passiveModeStrategy = ignorePasvAddress` forces the data connection to reuse the control host IP, which helps with some NAT or misconfigured server setups.
+
+Directory sync notes:
+
+- `Upload to Remote` supports directories and uploads them recursively, creating remote directories as needed.
+- `Download from Remote` supports directories and downloads them recursively, creating local directories as needed.
+- Directory download is additive: it pulls remote files and folders into the local directory tree, but does not delete extra local files.
 
 ## Development
 

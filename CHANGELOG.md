@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.3
+
+- Add recursive directory upload support for `Upload to Remote` from the Explorer.
+- Add recursive directory download support for `Download from Remote` from the Explorer.
+- Extend remote transport providers to distinguish files from directories and list remote directory contents.
+- Document file and directory sync behavior in the README.
+
 ## 0.1.2
 
 - Add advanced FTP options including explicit or implicit FTPS selection.
