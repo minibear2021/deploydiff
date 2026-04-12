@@ -1,5 +1,4 @@
 import * as vscode from 'vscode';
-import { registerApplyHunkToLocalCommand, registerApplyHunkToRemoteCommand } from './commands/applyDiffHunk';
 import { registerCompareWithDeployedCommand } from './commands/compareWithDeployed';
 import { registerDownloadFromRemoteCommand } from './commands/downloadFromRemote';
 import {
@@ -44,8 +43,6 @@ export function activate(context: vscode.ExtensionContext): DeployDiffExtensionA
     registerCompareWithDeployedCommand(remoteDiffDocumentProvider),
     registerUploadToRemoteCommand(context, remoteDiffDocumentProvider),
     registerDownloadFromRemoteCommand(context, remoteDiffDocumentProvider),
-    registerApplyHunkToRemoteCommand(context, remoteDiffDocumentProvider),
-    registerApplyHunkToLocalCommand(context, remoteDiffDocumentProvider),
     registerRefreshDeployedVersionCommand(remoteDiffDocumentProvider),
     registerSetSftpPasswordCommand(context),
     registerClearSftpPasswordCommand(context)

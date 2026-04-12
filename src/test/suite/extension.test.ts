@@ -180,8 +180,6 @@ suite('Extension bootstrap', () => {
     assert.ok(commands.includes('deploydiff.setSftpPassword'));
     assert.ok(commands.includes('deploydiff.clearSftpPassword'));
     assert.ok(commands.includes('deploydiff.refreshDeployedVersion'));
-    assert.ok(commands.includes('deploydiff.applyHunkToRemote'));
-    assert.ok(commands.includes('deploydiff.applyHunkToLocal'));
   });
 });
 
