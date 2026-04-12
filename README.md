@@ -1,37 +1,25 @@
 # DeployDiff
 
-DeployDiff is a Visual Studio Code extension for comparing local files against deployed remote versions and syncing changes in either direction.
+![Visual Studio Marketplace Version](https://img.shields.io/visual-studio-marketplace/v/minibear2021.deploydiff)
+![Visual Studio Marketplace Installs](https://img.shields.io/visual-studio-marketplace/i/minibear2021.deploydiff)
+![License](https://img.shields.io/github/license/minibear2021/deploydiff)
 
-It targets the same core workflow people expect from IntelliJ IDEA, PyCharm, and WebStorm deployment tooling:
-
-- Map a local directory to a deployed remote directory.
-- Right-click a file and choose Compare with Deployed Version.
-- Review a line-level diff in VS Code's built-in diff editor.
-- Upload or download explicitly from the file context or diff workflow.
+Compare local files against deployed remote versions and sync changes in either direction — the IntelliJ-style deployment diff experience, inside VS Code.
 
 ## Features
 
-- Workspace-folder scoped deployment mappings.
-- Built-in compare, upload, download, and refresh commands.
-- Remote diff documents backed by a custom VS Code content provider.
-- SFTP transport with password storage in VS Code Secret Storage.
-- Conflict prompts when local and remote timestamps suggest an overwrite risk.
-- Status bar display for the active deployment target and resolved remote path.
+- **Compare with Deployed Version** — Open VS Code's built-in diff editor to see line-level differences between any local file and its deployed counterpart.
+- **Bidirectional sync** — Swap the diff sides and use VS Code's native Revert Block to push changes in either direction. A status bar indicator always shows which side is local and which is remote.
+- **Writable remote pane** — Edit the remote side directly in the diff editor; saving writes back to the server.
+- **Upload / Download** — Explicit one-click commands from the explorer or editor context menu with conflict detection.
+- **SFTP transport** — Password or private-key authentication. Passwords are stored in VS Code Secret Storage, never in settings files.
+- **Multiple mappings** — Map several local directories to different remote roots within the same workspace.
+- **Actionable errors** — Missing configuration? Error toasts include quick-fix buttons like "Open Settings" or "Set Password".
 
-## Commands
+## Quick Start
 
-- `DeployDiff: Compare with Deployed Version`
-- `DeployDiff: Upload to Remote`
-- `DeployDiff: Download from Remote`
-- `DeployDiff: Refresh Deployed Version`
-- `DeployDiff: Set SFTP Password`
-- `DeployDiff: Clear SFTP Password`
-
-## Configuration
-
-DeployDiff stores mappings and transport settings at the workspace-folder resource scope.
-
-Example settings:
+1. Install the extension from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=minibear2021.deploydiff).
+2. Open your workspace settings and add a deployment mapping:
 
 ```json
 {
@@ -45,32 +33,42 @@ Example settings:
   ],
   "deploydiff.sftp.host": "example.com",
   "deploydiff.sftp.port": 22,
-  "deploydiff.sftp.username": "deploy",
-  "deploydiff.sftp.privateKeyPath": ""
+  "deploydiff.sftp.username": "deploy"
 }
 ```
 
-For password-based SFTP authentication, run `DeployDiff: Set SFTP Password` from the command palette.
+3. For password auth, run **DeployDiff: Set SFTP Password** from the Command Palette.
+4. Right-click a file in the Explorer → **Compare with Deployed Version**.
+5. In the diff editor, use the swap button (↔) to flip sides, then **Revert Block** to push changes left or right. The status bar shows the current direction.
 
-## Usage
+## Commands
 
-1. Configure at least one `deploydiff.mappings` entry.
-2. Choose a transport. Use `mock` for local testing or `sftp` for a real deployed target.
-3. If using SFTP password authentication, store the password with `DeployDiff: Set SFTP Password`.
-4. In the explorer, right-click a file and run `Compare with Deployed Version`.
-5. Use `Upload to Remote`, `Download from Remote`, or `Refresh Deployed Version` as needed.
+| Command | Description |
+|---|---|
+| `DeployDiff: Compare with Deployed Version` | Open a diff between the local file and its deployed remote copy |
+| `DeployDiff: Upload to Remote` | Push the local file to the remote server |
+| `DeployDiff: Download from Remote` | Pull the remote file to the local workspace |
+| `DeployDiff: Refresh Deployed Version` | Re-fetch the remote content in an open diff |
+| `DeployDiff: Set SFTP Password` | Store the SFTP password in VS Code Secret Storage |
+| `DeployDiff: Clear SFTP Password` | Remove the stored SFTP password |
+
+## Configuration
+
+| Setting | Default | Description |
+|---|---|---|
+| `deploydiff.transport` | `mock` | Transport type: `mock` (local testing) or `sftp` |
+| `deploydiff.mappings` | `[]` | Array of `{ name, localPath, remotePath }` mapping objects |
+| `deploydiff.confirmSync` | `true` | Prompt before overwriting during upload/download |
+| `deploydiff.sftp.host` | `""` | SFTP hostname or IP |
+| `deploydiff.sftp.port` | `22` | SFTP port |
+| `deploydiff.sftp.username` | `""` | SFTP username |
+| `deploydiff.sftp.privateKeyPath` | `""` | Path to a private key file (optional) |
 
 ## Security
 
-- DeployDiff does not store SFTP passwords in workspace settings.
-- Passwords are written to VS Code Secret Storage.
-- Private key authentication can be configured with `deploydiff.sftp.privateKeyPath`.
-
-## Current Limitations
-
-- SFTP is the only real remote transport currently implemented.
-- Marketplace branding assets such as an icon and screenshots are not included yet.
-- Sync conflict handling is timestamp-based and does not yet include a full conflict resolution UI.
+- SFTP passwords are stored in VS Code Secret Storage, never written to settings files.
+- Private key authentication is supported via `deploydiff.sftp.privateKeyPath`.
+- All remote writes require explicit user action — compare is always read-only.
 
 ## Development
 
@@ -81,3 +79,7 @@ npm run lint
 npm test
 npm run package
 ```
+
+## License
+
+[MIT](LICENSE)

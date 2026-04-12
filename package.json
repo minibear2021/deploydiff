@@ -2,9 +2,10 @@
   "name": "deploydiff",
   "displayName": "DeployDiff",
   "description": "Compare local files with deployed remote versions and sync changes in either direction.",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "publisher": "minibear2021",
   "license": "MIT",
+  "icon": "media/icon.png",
   "repository": {
     "type": "git",
     "url": "https://github.com/minibear2021/deploydiff.git"
