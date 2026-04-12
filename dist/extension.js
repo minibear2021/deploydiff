@@ -34,7 +34,7 @@ __export(extension_exports, {
   deactivate: () => deactivate
 });
 module.exports = __toCommonJS(extension_exports);
-var vscode14 = __toESM(require("vscode"));
+var vscode15 = __toESM(require("vscode"));
 
 // src/commands/applyDiffHunk.ts
 var vscode7 = __toESM(require("vscode"));
@@ -908,23 +908,14 @@ async function openDeployedDiff(localFileUri, remoteDiffDocumentProvider) {
   await remoteDiffDocumentProvider.preload(localFileUri);
   const localDocument = await vscode8.workspace.openTextDocument(localFileUri);
   const remoteDocument = await vscode8.workspace.openTextDocument(createRemoteDocumentUri(localFileUri));
-  const title = createDeployedDiffTitle(localFileUri, remoteDocument.uri);
+  const fileName = localFileUri.path.split("/").pop() ?? localFileUri.toString();
+  const title = `${fileName} \u2194 ${fileName}`;
   if (remoteDocument.languageId !== localDocument.languageId) {
     await vscode8.languages.setTextDocumentLanguage(remoteDocument, localDocument.languageId);
   }
   await vscode8.commands.executeCommand("vscode.diff", localFileUri, remoteDocument.uri, title, {
     preview: false
   });
-}
-function createDeployedDiffTitle(leftUri, rightUri) {
-  const localUri = isRemoteDocumentUri(leftUri) ? rightUri : leftUri;
-  const remoteUri = isRemoteDocumentUri(leftUri) ? leftUri : rightUri;
-  return `${createSideLabel(localUri)} \u2194 ${createSideLabel(remoteUri)}`;
-}
-function createSideLabel(uri) {
-  const fileName = uri.path.split("/").pop() ?? uri.toString();
-  const role = uri.scheme === DEPLOYDIFF_REMOTE_DOCUMENT_SCHEME || isRemoteDocumentUri(uri) ? "remote" : "local";
-  return `${fileName}(${role})`;
 }
 
 // src/commands/compareWithDeployed.ts
@@ -1097,19 +1088,67 @@ ${metadataLine}`;
   }
 };
 
+// src/status/diffDirectionIndicator.ts
+var vscode14 = __toESM(require("vscode"));
+var DiffDirectionIndicator = class {
+  statusBarItem = vscode14.window.createStatusBarItem(vscode14.StatusBarAlignment.Left, 99);
+  disposables = [];
+  constructor() {
+    this.statusBarItem.name = "DeployDiff Direction";
+    this.disposables.push(
+      vscode14.window.tabGroups.onDidChangeTabs(() => this.update()),
+      vscode14.window.onDidChangeActiveTextEditor(() => this.update())
+    );
+    this.update();
+  }
+  update() {
+    const diffInput = this.getActiveDiffInput();
+    if (!diffInput) {
+      this.statusBarItem.hide();
+      return;
+    }
+    const leftIsRemote = isRemoteDocumentUri(diffInput.original);
+    const leftRole = leftIsRemote ? "remote" : "local";
+    const rightRole = leftIsRemote ? "local" : "remote";
+    this.statusBarItem.text = `$(arrow-left) ${leftRole}  |  ${rightRole} $(arrow-right)`;
+    this.statusBarItem.tooltip = `Left: ${leftRole}  \u2014  Right: ${rightRole}
+Revert Block pushes right \u2192 left (${rightRole} \u2192 ${leftRole})`;
+    this.statusBarItem.show();
+  }
+  getActiveDiffInput() {
+    const activeTab = vscode14.window.tabGroups.activeTabGroup.activeTab;
+    if (!activeTab || !(activeTab.input instanceof vscode14.TabInputTextDiff)) {
+      return void 0;
+    }
+    const input = activeTab.input;
+    if (isRemoteDocumentUri(input.original) || isRemoteDocumentUri(input.modified)) {
+      return input;
+    }
+    return void 0;
+  }
+  dispose() {
+    this.statusBarItem.dispose();
+    for (const d of this.disposables) {
+      d.dispose();
+    }
+  }
+};
+
 // src/extension.ts
 function activate(context) {
   const remoteDiffDocumentProvider = new RemoteDiffDocumentProvider(context.secrets);
   const deploymentStatusIndicator = new DeploymentStatusIndicator(remoteDiffDocumentProvider);
+  const diffDirectionIndicator = new DiffDirectionIndicator();
   context.subscriptions.push(
     deploymentStatusIndicator,
-    vscode14.window.onDidChangeActiveTextEditor(() => deploymentStatusIndicator.update()),
-    vscode14.workspace.onDidChangeConfiguration((event) => {
+    diffDirectionIndicator,
+    vscode15.window.onDidChangeActiveTextEditor(() => deploymentStatusIndicator.update()),
+    vscode15.workspace.onDidChangeConfiguration((event) => {
       if (event.affectsConfiguration("deploydiff")) {
         deploymentStatusIndicator.update();
       }
     }),
-    vscode14.workspace.registerFileSystemProvider(
+    vscode15.workspace.registerFileSystemProvider(
       DEPLOYDIFF_REMOTE_DOCUMENT_SCHEME,
       remoteDiffDocumentProvider,
       {

@@ -13,6 +13,7 @@ import {
   RemoteDiffDocumentProvider
 } from './diff/remoteDiffDocumentProvider';
 import { DeploymentStatusIndicator } from './status/deploymentStatusIndicator';
+import { DiffDirectionIndicator } from './status/diffDirectionIndicator';
 
 export type DeployDiffExtensionApi = {
   secrets: vscode.SecretStorage;
@@ -21,9 +22,11 @@ export type DeployDiffExtensionApi = {
 export function activate(context: vscode.ExtensionContext): DeployDiffExtensionApi {
   const remoteDiffDocumentProvider = new RemoteDiffDocumentProvider(context.secrets);
   const deploymentStatusIndicator = new DeploymentStatusIndicator(remoteDiffDocumentProvider);
+  const diffDirectionIndicator = new DiffDirectionIndicator();
 
   context.subscriptions.push(
     deploymentStatusIndicator,
+    diffDirectionIndicator,
     vscode.window.onDidChangeActiveTextEditor(() => deploymentStatusIndicator.update()),
     vscode.workspace.onDidChangeConfiguration((event) => {
       if (event.affectsConfiguration('deploydiff')) {
