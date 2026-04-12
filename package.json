@@ -2,7 +2,7 @@
   "name": "deploydiff",
   "displayName": "DeployDiff",
   "description": "Compare local files with deployed remote versions and sync changes in either direction.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publisher": "minibear2021",
   "license": "MIT",
   "icon": "media/icon.png",
@@ -56,11 +56,6 @@
         "command": "deploydiff.clearSftpPassword",
         "title": "Clear SFTP Password",
         "category": "DeployDiff"
-      },
-      {
-        "command": "deploydiff.refreshDeployedVersion",
-        "title": "Refresh Deployed Version",
-        "category": "DeployDiff"
       }
     ],
     "menus": {
@@ -79,11 +74,6 @@
           "command": "deploydiff.downloadFromRemote",
           "when": "resourceScheme == file",
           "group": "navigation@22"
-        },
-        {
-          "command": "deploydiff.refreshDeployedVersion",
-          "when": "resourceScheme == file || resourceScheme == deploydiff-remote",
-          "group": "navigation@23"
         }
       ],
       "editor/context": [
@@ -101,11 +91,6 @@
           "command": "deploydiff.downloadFromRemote",
           "when": "resourceScheme == file || resourceScheme == deploydiff-remote",
           "group": "navigation@22"
-        },
-        {
-          "command": "deploydiff.refreshDeployedVersion",
-          "when": "resourceScheme == file || resourceScheme == deploydiff-remote",
-          "group": "navigation@23"
         }
       ]
     },

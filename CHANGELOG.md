@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.1
+
+- Remove the `Refresh Deployed Version` command entirely from menus, command palette registration, implementation, and docs.
+- Add automated GitHub Actions release flow: build, lint, test, package `.vsix`, publish to VS Code Marketplace when `package.json` version changes, and create or update the matching GitHub Release.
+- Validate in CI that `CHANGELOG.md` contains a non-empty section for the current package version before publishing.
+- Use changelog content as the GitHub Release body and keep uploaded `.vsix` assets updated on repeated release runs.
+- Run extension tests in CI with `xvfb-run` so VS Code integration tests work on headless Linux runners.
+
 ## 0.1.0
 
 - Add extension icon.

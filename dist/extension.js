@@ -586,15 +586,6 @@ function registerClearSftpPasswordCommand(context) {
   });
 }
 
-// src/commands/refreshDeployedVersion.ts
-function registerRefreshDeployedVersionCommand(remoteDiffDocumentProvider) {
-  return registerDeployCommand("deploydiff.refreshDeployedVersion", async (resource) => {
-    const localFileUri = getOrResolveResourceUri(resource);
-    await remoteDiffDocumentProvider.preload(localFileUri);
-    remoteDiffDocumentProvider.refresh(localFileUri);
-  });
-}
-
 // src/commands/uploadToRemote.ts
 var vscode11 = __toESM(require("vscode"));
 function registerUploadToRemoteCommand(context, remoteDiffDocumentProvider) {
@@ -735,7 +726,6 @@ function activate(context) {
     registerCompareWithDeployedCommand(remoteDiffDocumentProvider),
     registerUploadToRemoteCommand(context, remoteDiffDocumentProvider),
     registerDownloadFromRemoteCommand(context, remoteDiffDocumentProvider),
-    registerRefreshDeployedVersionCommand(remoteDiffDocumentProvider),
     registerSetSftpPasswordCommand(context),
     registerClearSftpPasswordCommand(context)
   );

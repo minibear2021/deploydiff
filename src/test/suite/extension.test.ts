@@ -179,7 +179,6 @@ suite('Extension bootstrap', () => {
     assert.ok(commands.includes('deploydiff.downloadFromRemote'));
     assert.ok(commands.includes('deploydiff.setSftpPassword'));
     assert.ok(commands.includes('deploydiff.clearSftpPassword'));
-    assert.ok(commands.includes('deploydiff.refreshDeployedVersion'));
   });
 });
 

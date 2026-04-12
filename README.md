@@ -48,7 +48,6 @@ Compare local files against deployed remote versions and sync changes in either 
 | `DeployDiff: Compare with Deployed Version` | Open a diff between the local file and its deployed remote copy |
 | `DeployDiff: Upload to Remote` | Push the local file to the remote server |
 | `DeployDiff: Download from Remote` | Pull the remote file to the local workspace |
-| `DeployDiff: Refresh Deployed Version` | Re-fetch the remote content in an open diff |
 | `DeployDiff: Set SFTP Password` | Store the SFTP password in VS Code Secret Storage |
 | `DeployDiff: Clear SFTP Password` | Remove the stored SFTP password |
 
