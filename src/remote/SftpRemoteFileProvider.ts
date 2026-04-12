@@ -1,5 +1,6 @@
 import SftpClient from 'ssh2-sftp-client';
 import { RemoteFileMetadata, RemoteFileProvider } from './RemoteFileProvider';
+import { getRemoteParentDirectory } from './remotePath';
 import { SftpConnectionOptions } from './sftpConfiguration';
 
 export class SftpRemoteFileProvider implements RemoteFileProvider {
@@ -64,15 +65,4 @@ export class SftpRemoteFileProvider implements RemoteFileProvider {
       await client.end().catch(() => undefined);
     }
   }
-}
-
-export function getRemoteParentDirectory(remotePath: string): string {
-  const normalizedPath = remotePath.replace(/\/+/g, '/');
-  const lastSlashIndex = normalizedPath.lastIndexOf('/');
-
-  if (lastSlashIndex <= 0) {
-    return '/';
-  }
-
-  return normalizedPath.slice(0, lastSlashIndex) || '/';
 }

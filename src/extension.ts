@@ -2,6 +2,10 @@ import * as vscode from 'vscode';
 import { registerCompareWithDeployedCommand } from './commands/compareWithDeployed';
 import { registerDownloadFromRemoteCommand } from './commands/downloadFromRemote';
 import {
+  registerClearFtpPasswordCommand,
+  registerSetFtpPasswordCommand
+} from './commands/manageFtpPassword';
+import {
   registerClearSftpPasswordCommand,
   registerSetSftpPasswordCommand
 } from './commands/manageSftpPassword';
@@ -42,6 +46,8 @@ export function activate(context: vscode.ExtensionContext): DeployDiffExtensionA
     registerCompareWithDeployedCommand(remoteDiffDocumentProvider),
     registerUploadToRemoteCommand(context, remoteDiffDocumentProvider),
     registerDownloadFromRemoteCommand(context, remoteDiffDocumentProvider),
+    registerSetFtpPasswordCommand(context),
+    registerClearFtpPasswordCommand(context),
     registerSetSftpPasswordCommand(context),
     registerClearSftpPasswordCommand(context)
   );

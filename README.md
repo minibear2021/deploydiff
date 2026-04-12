@@ -12,7 +12,7 @@ Compare local files against deployed remote versions and sync changes in either 
 - **Bidirectional sync** — Swap the diff sides and use VS Code's native Revert Block to push changes in either direction. A status bar indicator always shows which side is local and which is remote.
 - **Writable remote pane** — Edit the remote side directly in the diff editor; saving writes back to the server.
 - **Upload / Download** — Explicit one-click commands from the explorer or editor context menu with conflict detection.
-- **SFTP transport** — Password or private-key authentication. Passwords are stored in VS Code Secret Storage, never in settings files.
+- **FTP and SFTP transports** — FTP supports password auth, and SFTP supports password or private-key auth. Passwords are stored in VS Code Secret Storage, never in settings files.
 - **Multiple mappings** — Map several local directories to different remote roots within the same workspace.
 - **Actionable errors** — Missing configuration? Error toasts include quick-fix buttons like "Open Settings" or "Set Password".
 
@@ -23,7 +23,7 @@ Compare local files against deployed remote versions and sync changes in either 
 
 ```json
 {
-  "deploydiff.transport": "sftp",
+  "deploydiff.transport": "ftp",
   "deploydiff.mappings": [
     {
       "name": "app",
@@ -31,13 +31,14 @@ Compare local files against deployed remote versions and sync changes in either 
       "remotePath": "/var/www/app/src"
     }
   ],
-  "deploydiff.sftp.host": "example.com",
-  "deploydiff.sftp.port": 22,
-  "deploydiff.sftp.username": "deploy"
+  "deploydiff.ftp.host": "example.com",
+  "deploydiff.ftp.port": 21,
+  "deploydiff.ftp.username": "deploy",
+  "deploydiff.ftp.secure": false
 }
 ```
 
-3. For password auth, run **DeployDiff: Set SFTP Password** from the Command Palette.
+3. For FTP password auth, run **DeployDiff: Set FTP Password**. For SFTP password auth, run **DeployDiff: Set SFTP Password**.
 4. Right-click a file in the Explorer → **Compare with Deployed Version**.
 5. In the diff editor, use the swap button (↔) to flip sides, then **Revert Block** to push changes left or right. The status bar shows the current direction.
 
@@ -48,6 +49,8 @@ Compare local files against deployed remote versions and sync changes in either 
 | `DeployDiff: Compare with Deployed Version` | Open a diff between the local file and its deployed remote copy |
 | `DeployDiff: Upload to Remote` | Push the local file to the remote server |
 | `DeployDiff: Download from Remote` | Pull the remote file to the local workspace |
+| `DeployDiff: Set FTP Password` | Store the FTP password in VS Code Secret Storage |
+| `DeployDiff: Clear FTP Password` | Remove the stored FTP password |
 | `DeployDiff: Set SFTP Password` | Store the SFTP password in VS Code Secret Storage |
 | `DeployDiff: Clear SFTP Password` | Remove the stored SFTP password |
 
@@ -55,9 +58,13 @@ Compare local files against deployed remote versions and sync changes in either 
 
 | Setting | Default | Description |
 |---|---|---|
-| `deploydiff.transport` | `mock` | Transport type: `mock` (local testing) or `sftp` |
+| `deploydiff.transport` | `mock` | Transport type: `mock`, `ftp`, or `sftp` |
 | `deploydiff.mappings` | `[]` | Array of `{ name, localPath, remotePath }` mapping objects |
 | `deploydiff.confirmSync` | `true` | Prompt before overwriting during upload/download |
+| `deploydiff.ftp.host` | `""` | FTP hostname or IP |
+| `deploydiff.ftp.port` | `21` | FTP port |
+| `deploydiff.ftp.username` | `""` | FTP username |
+| `deploydiff.ftp.secure` | `false` | Use FTPS (TLS) for FTP connections |
 | `deploydiff.sftp.host` | `""` | SFTP hostname or IP |
 | `deploydiff.sftp.port` | `22` | SFTP port |
 | `deploydiff.sftp.username` | `""` | SFTP username |
@@ -65,7 +72,7 @@ Compare local files against deployed remote versions and sync changes in either 
 
 ## Security
 
-- SFTP passwords are stored in VS Code Secret Storage, never written to settings files.
+- FTP and SFTP passwords are stored in VS Code Secret Storage, never written to settings files.
 - Private key authentication is supported via `deploydiff.sftp.privateKeyPath`.
 - All remote writes require explicit user action — compare is always read-only.
 

@@ -1,4 +1,6 @@
 import * as vscode from 'vscode';
+import { FtpRemoteFileProvider } from './FtpRemoteFileProvider';
+import { getFtpConnectionOptions } from './ftpConfiguration';
 import { MockRemoteFileProvider } from './MockRemoteFileProvider';
 import { SftpRemoteFileProvider } from './SftpRemoteFileProvider';
 import { getSftpConnectionOptions } from './sftpConfiguration';
@@ -25,6 +27,8 @@ export async function createRemoteFileProvider(
   switch (transport) {
     case 'mock':
       return new MockRemoteFileProvider(workspaceFolder);
+    case 'ftp':
+      return new FtpRemoteFileProvider(await getFtpConnectionOptions(workspaceFolder, secrets));
     case 'sftp':
       return new SftpRemoteFileProvider(await getSftpConnectionOptions(workspaceFolder, secrets));
     default:

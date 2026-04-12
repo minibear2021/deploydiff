@@ -14,5 +14,9 @@
     "deploydiff.transport": "sftp",
     "deploydiff.mockRemoteFiles": {
         "/var/www/app/src/example.ts": "remote-content"
-    }
+    },
+    "deploydiff.ftp.host": "ftp.example.com",
+    "deploydiff.ftp.port": 2121,
+    "deploydiff.ftp.username": "deploy",
+    "deploydiff.ftp.secure": true
 }

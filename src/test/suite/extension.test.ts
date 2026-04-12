@@ -10,7 +10,8 @@ import {
   getLocalFileUriFromRemoteDocumentUri,
   isRemoteDocumentUri
 } from '../../diff/remoteDiffDocumentProvider';
-import { getRemoteParentDirectory } from '../../remote/SftpRemoteFileProvider';
+import { DEPLOYDIFF_FTP_PASSWORD_SECRET_KEY, getFtpConnectionOptions } from '../../remote/ftpConfiguration';
+import { getRemoteParentDirectory } from '../../remote/remotePath';
 import { DEPLOYDIFF_SFTP_PASSWORD_SECRET_KEY, getSftpConnectionOptions } from '../../remote/sftpConfiguration';
 import { detectSyncConflict } from '../../sync/conflictDetection';
 import { DeployDiffExtensionApi } from '../../extension';
@@ -177,8 +178,39 @@ suite('Extension bootstrap', () => {
     assert.ok(commands.includes('deploydiff.compareWithDeployedVersion'));
     assert.ok(commands.includes('deploydiff.uploadToRemote'));
     assert.ok(commands.includes('deploydiff.downloadFromRemote'));
+    assert.ok(commands.includes('deploydiff.setFtpPassword'));
+    assert.ok(commands.includes('deploydiff.clearFtpPassword'));
     assert.ok(commands.includes('deploydiff.setSftpPassword'));
     assert.ok(commands.includes('deploydiff.clearSftpPassword'));
+  });
+});
+
+suite('FTP configuration', () => {
+  test('builds password-based options from workspace config and secrets', async () => {
+    const extension = vscode.extensions.getExtension('minibear2021.deploydiff');
+    assert.ok(extension);
+
+    const api = (await extension.activate()) as DeployDiffExtensionApi;
+
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    assert.ok(workspaceFolder);
+
+    const configuration = vscode.workspace.getConfiguration('deploydiff', workspaceFolder.uri);
+    await configuration.update('ftp.host', 'ftp.example.com', vscode.ConfigurationTarget.WorkspaceFolder);
+    await configuration.update('ftp.port', 2121, vscode.ConfigurationTarget.WorkspaceFolder);
+    await configuration.update('ftp.username', 'deploy', vscode.ConfigurationTarget.WorkspaceFolder);
+    await configuration.update('ftp.secure', true, vscode.ConfigurationTarget.WorkspaceFolder);
+    await api.secrets.store(DEPLOYDIFF_FTP_PASSWORD_SECRET_KEY, 'ftp-secret');
+
+    const options = await getFtpConnectionOptions(workspaceFolder, api.secrets);
+
+    assert.equal(options.host, 'ftp.example.com');
+    assert.equal(options.port, 2121);
+    assert.equal(options.user, 'deploy');
+    assert.equal(options.password, 'ftp-secret');
+    assert.equal(options.secure, true);
+
+    await api.secrets.delete(DEPLOYDIFF_FTP_PASSWORD_SECRET_KEY);
   });
 });
 

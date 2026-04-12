@@ -48,6 +48,16 @@
         "category": "DeployDiff"
       },
       {
+        "command": "deploydiff.setFtpPassword",
+        "title": "Set FTP Password",
+        "category": "DeployDiff"
+      },
+      {
+        "command": "deploydiff.clearFtpPassword",
+        "title": "Clear FTP Password",
+        "category": "DeployDiff"
+      },
+      {
         "command": "deploydiff.setSftpPassword",
         "title": "Set SFTP Password",
         "category": "DeployDiff"
@@ -101,6 +111,7 @@
           "type": "string",
           "enum": [
             "mock",
+            "ftp",
             "sftp"
           ],
           "default": "mock",
@@ -147,6 +158,30 @@
           "scope": "resource",
           "markdownDescription": "Mock remote file contents keyed by deployed absolute path. Useful while transport integrations are not implemented."
         },
+        "deploydiff.ftp.host": {
+          "type": "string",
+          "default": "",
+          "scope": "resource",
+          "description": "FTP host name or IP address."
+        },
+        "deploydiff.ftp.port": {
+          "type": "number",
+          "default": 21,
+          "scope": "resource",
+          "description": "FTP port."
+        },
+        "deploydiff.ftp.username": {
+          "type": "string",
+          "default": "",
+          "scope": "resource",
+          "description": "FTP username."
+        },
+        "deploydiff.ftp.secure": {
+          "type": "boolean",
+          "default": false,
+          "scope": "resource",
+          "description": "Use FTPS (TLS) when connecting over FTP."
+        },
         "deploydiff.sftp.host": {
           "type": "string",
           "default": "",
@@ -184,6 +219,7 @@
     "package": "vsce package"
   },
   "dependencies": {
+    "basic-ftp": "^5.2.2",
     "diff": "^8.0.4",
     "ssh2-sftp-client": "^12.1.1"
   },
