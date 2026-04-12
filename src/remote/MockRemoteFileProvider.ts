@@ -6,6 +6,10 @@ type RemoteFileMap = Record<string, string>;
 export class MockRemoteFileProvider implements RemoteFileProvider {
   public constructor(private readonly workspaceFolder: vscode.WorkspaceFolder) {}
 
+  public createDirectory(): Promise<void> {
+    return Promise.resolve();
+  }
+
   public exists(remotePath: string): Promise<boolean> {
     return Promise.resolve(this.getRemoteFiles()[remotePath] !== undefined);
   }

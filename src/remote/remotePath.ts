@@ -19,3 +19,18 @@ export function getRemoteFileName(remotePath: string): string {
 
   return fileName;
 }
+
+export function joinRemotePath(remoteRoot: string, childName: string): string {
+  const sanitizedRoot = remoteRoot.replace(/\/+/g, '/').replace(/\/+$/, '') || '/';
+  const sanitizedChild = childName.replace(/\/+/g, '/').replace(/^\/+/, '');
+
+  if (!sanitizedChild) {
+    return sanitizedRoot;
+  }
+
+  if (sanitizedRoot === '/') {
+    return `/${sanitizedChild}`;
+  }
+
+  return `${sanitizedRoot}/${sanitizedChild}`;
+}

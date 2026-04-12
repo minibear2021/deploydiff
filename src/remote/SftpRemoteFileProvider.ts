@@ -6,6 +6,12 @@ import { SftpConnectionOptions } from './sftpConfiguration';
 export class SftpRemoteFileProvider implements RemoteFileProvider {
   public constructor(private readonly options: SftpConnectionOptions) {}
 
+  public async createDirectory(remotePath: string): Promise<void> {
+    await this.withClient(async (client) => {
+      await client.mkdir(remotePath, true);
+    });
+  }
+
   public async exists(remotePath: string): Promise<boolean> {
     return this.withClient(async (client) => Boolean(await client.exists(remotePath)));
   }

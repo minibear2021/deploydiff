@@ -408,17 +408,17 @@ var require_FileInfo = __commonJS({
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.FileInfo = exports2.FileType = void 0;
-    var FileType2;
-    (function(FileType3) {
-      FileType3[FileType3["Unknown"] = 0] = "Unknown";
-      FileType3[FileType3["File"] = 1] = "File";
-      FileType3[FileType3["Directory"] = 2] = "Directory";
-      FileType3[FileType3["SymbolicLink"] = 3] = "SymbolicLink";
-    })(FileType2 || (exports2.FileType = FileType2 = {}));
+    var FileType3;
+    (function(FileType4) {
+      FileType4[FileType4["Unknown"] = 0] = "Unknown";
+      FileType4[FileType4["File"] = 1] = "File";
+      FileType4[FileType4["Directory"] = 2] = "Directory";
+      FileType4[FileType4["SymbolicLink"] = 3] = "SymbolicLink";
+    })(FileType3 || (exports2.FileType = FileType3 = {}));
     var FileInfo = class {
       constructor(name) {
         this.name = name;
-        this.type = FileType2.Unknown;
+        this.type = FileType3.Unknown;
         this.size = 0;
         this.rawModifiedAt = "";
         this.modifiedAt = void 0;
@@ -431,13 +431,13 @@ var require_FileInfo = __commonJS({
         this.name = name;
       }
       get isDirectory() {
-        return this.type === FileType2.Directory;
+        return this.type === FileType3.Directory;
       }
       get isSymbolicLink() {
-        return this.type === FileType2.SymbolicLink;
+        return this.type === FileType3.SymbolicLink;
       }
       get isFile() {
-        return this.type === FileType2.File;
+        return this.type === FileType3.File;
       }
       /**
        * Deprecated, legacy API. Use `rawModifiedAt` instead.
@@ -2103,11 +2103,27 @@ function getRemoteFileName(remotePath) {
   }
   return fileName;
 }
+function joinRemotePath2(remoteRoot, childName) {
+  const sanitizedRoot = remoteRoot.replace(/\/+/g, "/").replace(/\/+$/, "") || "/";
+  const sanitizedChild = childName.replace(/\/+/g, "/").replace(/^\/+/, "");
+  if (!sanitizedChild) {
+    return sanitizedRoot;
+  }
+  if (sanitizedRoot === "/") {
+    return `/${sanitizedChild}`;
+  }
+  return `${sanitizedRoot}/${sanitizedChild}`;
+}
 
 // src/remote/FtpRemoteFileProvider.ts
 var FtpRemoteFileProvider = class {
   constructor(options) {
     this.options = options;
+  }
+  async createDirectory(remotePath) {
+    await this.withClient(async (client) => {
+      await client.ensureDir(remotePath);
+    });
   }
   async exists(remotePath) {
     return this.withClient(async (client) => {
@@ -2260,6 +2276,9 @@ var MockRemoteFileProvider = class {
   constructor(workspaceFolder) {
     this.workspaceFolder = workspaceFolder;
   }
+  createDirectory() {
+    return Promise.resolve();
+  }
   exists(remotePath) {
     return Promise.resolve(this.getRemoteFiles()[remotePath] !== void 0);
   }
@@ -2303,6 +2322,11 @@ var import_ssh2_sftp_client = __toESM(require("ssh2-sftp-client"));
 var SftpRemoteFileProvider = class {
   constructor(options) {
     this.options = options;
+  }
+  async createDirectory(remotePath) {
+    await this.withClient(async (client) => {
+      await client.mkdir(remotePath, true);
+    });
   }
   async exists(remotePath) {
     return this.withClient(async (client) => Boolean(await client.exists(remotePath)));
@@ -2770,9 +2794,11 @@ function registerUploadToRemoteCommand(context, remoteDiffDocumentProvider) {
     const configuration = vscode13.workspace.getConfiguration("deploydiff", target.workspaceFolder.uri);
     const confirmSync = configuration.get("confirmSync", true);
     const provider = await createRemoteFileProvider(target.workspaceFolder, context.secrets);
+    const localStat = await vscode13.workspace.fs.stat(localFileUri);
+    const isDirectory = (localStat.type & vscode13.FileType.Directory) !== 0;
     if (confirmSync) {
       const answer = await vscode13.window.showWarningMessage(
-        `Upload ${target.relativePath} to ${target.mapping.remoteRoot}?`,
+        isDirectory ? `Upload directory ${target.relativePath || "."} to ${target.remoteFilePath}?` : `Upload ${target.relativePath} to ${target.mapping.remoteRoot}?`,
         { modal: true },
         "Upload"
       );
@@ -2780,20 +2806,50 @@ function registerUploadToRemoteCommand(context, remoteDiffDocumentProvider) {
         return;
       }
     }
-    const localStat = await vscode13.workspace.fs.stat(localFileUri);
-    if (await provider.exists(target.remoteFilePath)) {
-      const remoteMetadata = await provider.stat(target.remoteFilePath);
-      const conflictMessage = detectSyncConflict("upload", new Date(localStat.mtime), remoteMetadata);
-      if (conflictMessage && !await confirmSyncConflict("upload", conflictMessage, target.relativePath)) {
-        return;
-      }
+    if (isDirectory) {
+      const summary = { filesUploaded: 0, directoriesCreated: 0 };
+      await uploadDirectoryToRemote(localFileUri, target.remoteFilePath, provider, summary);
+      await vscode13.window.showInformationMessage(
+        `Uploaded ${summary.filesUploaded} file(s) from ${target.relativePath || "."} to ${target.remoteFilePath}.`
+      );
+      return;
     }
-    const contentBytes = await vscode13.workspace.fs.readFile(localFileUri);
-    const content = Buffer.from(contentBytes).toString("utf8");
-    await provider.writeFile(target.remoteFilePath, content);
+    await uploadFileToRemote(localFileUri, target.remoteFilePath, provider, target.relativePath);
     remoteDiffDocumentProvider.refresh(localFileUri);
     await vscode13.window.showInformationMessage(`Uploaded ${target.relativePath} to ${target.remoteFilePath}.`);
   });
+}
+async function uploadDirectoryToRemote(localDirectoryUri, remoteDirectoryPath, provider, summary) {
+  await provider.createDirectory(remoteDirectoryPath);
+  summary.directoriesCreated += 1;
+  const entries = await vscode13.workspace.fs.readDirectory(localDirectoryUri);
+  for (const [name, type] of entries) {
+    const childLocalUri = vscode13.Uri.joinPath(localDirectoryUri, name);
+    const childRemotePath = joinRemotePath2(remoteDirectoryPath, name);
+    if ((type & vscode13.FileType.Directory) !== 0) {
+      await uploadDirectoryToRemote(childLocalUri, childRemotePath, provider, summary);
+      continue;
+    }
+    if ((type & vscode13.FileType.File) !== 0) {
+      await uploadFileToRemote(childLocalUri, childRemotePath, provider, childLocalUri.path.split("/").pop() ?? name);
+      summary.filesUploaded += 1;
+      continue;
+    }
+    throw new Error(`DeployDiff cannot upload unsupported directory entry ${name}.`);
+  }
+}
+async function uploadFileToRemote(localFileUri, remoteFilePath, provider, label) {
+  const localStat = await vscode13.workspace.fs.stat(localFileUri);
+  if (await provider.exists(remoteFilePath)) {
+    const remoteMetadata = await provider.stat(remoteFilePath);
+    const conflictMessage = detectSyncConflict("upload", new Date(localStat.mtime), remoteMetadata);
+    if (conflictMessage && !await confirmSyncConflict("upload", conflictMessage, label)) {
+      return;
+    }
+  }
+  const contentBytes = await vscode13.workspace.fs.readFile(localFileUri);
+  const content = Buffer.from(contentBytes).toString("utf8");
+  await provider.writeFile(remoteFilePath, content);
 }
 
 // src/status/deploymentStatusIndicator.ts

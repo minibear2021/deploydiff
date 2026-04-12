@@ -11,6 +11,7 @@ export type RemoteFileMetadata = {
 };
 
 export interface RemoteFileProvider {
+  createDirectory(remotePath: string): Promise<void>;
   exists(remotePath: string): Promise<boolean>;
   stat(remotePath: string): Promise<RemoteFileMetadata>;
   readFile(remotePath: string): Promise<string>;

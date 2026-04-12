@@ -8,6 +8,12 @@ import { getRemoteFileName, getRemoteParentDirectory } from './remotePath';
 export class FtpRemoteFileProvider implements RemoteFileProvider {
   public constructor(private readonly options: FtpConnectionOptions) {}
 
+  public async createDirectory(remotePath: string): Promise<void> {
+    await this.withClient(async (client) => {
+      await client.ensureDir(remotePath);
+    });
+  }
+
   public async exists(remotePath: string): Promise<boolean> {
     return this.withClient(async (client) => {
       const parentDirectory = getRemoteParentDirectory(remotePath);

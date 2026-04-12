@@ -11,7 +11,7 @@ import {
   isRemoteDocumentUri
 } from '../../diff/remoteDiffDocumentProvider';
 import { DEPLOYDIFF_FTP_PASSWORD_SECRET_KEY, getFtpConnectionOptions } from '../../remote/ftpConfiguration';
-import { getRemoteParentDirectory } from '../../remote/remotePath';
+import { getRemoteParentDirectory, joinRemotePath } from '../../remote/remotePath';
 import { DEPLOYDIFF_SFTP_PASSWORD_SECRET_KEY, getSftpConnectionOptions } from '../../remote/sftpConfiguration';
 import { detectSyncConflict } from '../../sync/conflictDetection';
 import { DeployDiffExtensionApi } from '../../extension';
@@ -103,6 +103,12 @@ suite('SFTP path helpers', () => {
   test('derives the remote parent directory', () => {
     assert.equal(getRemoteParentDirectory('/var/www/app/src/example.ts'), '/var/www/app/src');
     assert.equal(getRemoteParentDirectory('/example.ts'), '/');
+  });
+
+  test('joins remote paths for nested directory uploads', () => {
+    assert.equal(joinRemotePath('/var/www/app/src', 'features'), '/var/www/app/src/features');
+    assert.equal(joinRemotePath('/var/www/app/src/', 'features/example.ts'), '/var/www/app/src/features/example.ts');
+    assert.equal(joinRemotePath('/', 'example.ts'), '/example.ts');
   });
 });
 
