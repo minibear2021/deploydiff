@@ -28,12 +28,12 @@ jobs:
 
       - name: Read current package version
         id: current
-        run: echo "package_version=$(node -p \"require('./package.json').version\")" >> "$GITHUB_OUTPUT"
+        run: echo "package_version=$(node -p 'require("./package.json").version')" >> "$GITHUB_OUTPUT"
 
       - name: Detect package version change
         id: detect
         run: |
-          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          CURRENT_VERSION=$(node -p 'require("./package.json").version')
 
           if [ "${{ github.event.before }}" = "0000000000000000000000000000000000000000" ]; then
             echo "version_changed=true" >> "$GITHUB_OUTPUT"
@@ -77,11 +77,11 @@ jobs:
         run: npm run lint
 
       - name: Run tests
-        run: npm test
+        run: xvfb-run -a npm test
 
       - name: Validate changelog entry for current version
         run: |
-          VERSION=$(node -p "require('./package.json').version")
+          VERSION=$(node -p 'require("./package.json").version')
           VERSION="$VERSION" node <<'EOF'
           const fs = require('fs');
           const version = process.env.VERSION;
@@ -141,7 +141,7 @@ jobs:
 
       - name: Validate package version still matches detection result
         run: |
-          PACKAGE_VERSION=$(node -p "require('./package.json').version")
+          PACKAGE_VERSION=$(node -p 'require("./package.json").version')
           if [ "$PACKAGE_VERSION" != "${{ needs.detect-version-change.outputs.package_version }}" ]; then
             echo "Detected package version ${{ needs.detect-version-change.outputs.package_version }} but current package.json is $PACKAGE_VERSION"
             exit 1
