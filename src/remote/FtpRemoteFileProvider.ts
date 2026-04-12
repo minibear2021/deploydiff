@@ -1,5 +1,6 @@
 import { PassThrough, Readable } from 'node:stream';
 import { Client } from 'basic-ftp';
+import { enterPassiveModeIPv4_forceControlHostIP } from 'basic-ftp/dist/transfer';
 import { RemoteFileMetadata, RemoteFileProvider } from './RemoteFileProvider';
 import { FtpConnectionOptions } from './ftpConfiguration';
 import { getRemoteFileName, getRemoteParentDirectory } from './remotePath';
@@ -64,7 +65,11 @@ export class FtpRemoteFileProvider implements RemoteFileProvider {
   }
 
   private async withClient<T>(operation: (client: Client) => Promise<T>): Promise<T> {
-    const client = new Client(10000);
+    const client = new Client(this.options.timeoutMs);
+
+    if (this.options.passiveModeStrategy === 'ignorePasvAddress') {
+      client.prepareTransfer = enterPassiveModeIPv4_forceControlHostIP;
+    }
 
     try {
       await client.access(this.options);

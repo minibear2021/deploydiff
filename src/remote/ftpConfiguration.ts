@@ -1,14 +1,16 @@
 import * as vscode from 'vscode';
+import { AccessOptions } from 'basic-ftp';
 import { DeployDiffError } from '../errors/DeployDiffError';
 
 export const DEPLOYDIFF_FTP_PASSWORD_SECRET_KEY = 'deploydiff.ftp.password';
 
-export type FtpConnectionOptions = {
-  host: string;
-  port: number;
-  user: string;
-  password: string;
-  secure: boolean;
+export type FtpSecurityMode = 'off' | 'explicit' | 'implicit';
+export type FtpPassiveModeStrategy = 'default' | 'ignorePasvAddress';
+
+export type FtpConnectionOptions = AccessOptions & {
+  securityMode: FtpSecurityMode;
+  passiveModeStrategy: FtpPassiveModeStrategy;
+  timeoutMs: number;
 };
 
 export async function getFtpConnectionOptions(
@@ -19,7 +21,10 @@ export async function getFtpConnectionOptions(
   const host = configuration.get<string>('ftp.host', '').trim();
   const port = configuration.get<number>('ftp.port', 21);
   const user = configuration.get<string>('ftp.username', '').trim();
+  const configuredSecurityMode = configuration.get<string>('ftp.securityMode', '').trim();
   const secure = configuration.get<boolean>('ftp.secure', false);
+  const passiveModeStrategy = configuration.get<FtpPassiveModeStrategy>('ftp.passiveModeStrategy', 'default');
+  const timeoutMs = configuration.get<number>('ftp.timeoutMs', 10000);
   const password = await secrets.get(DEPLOYDIFF_FTP_PASSWORD_SECRET_KEY);
 
   if (!host) {
@@ -44,6 +49,12 @@ export async function getFtpConnectionOptions(
     throw new Error('DeployDiff FTP port must be a positive integer.');
   }
 
+  if (!Number.isInteger(timeoutMs) || timeoutMs < 0) {
+    throw new Error('DeployDiff FTP timeout must be a non-negative integer in milliseconds.');
+  }
+
+  const securityMode = resolveSecurityMode(configuredSecurityMode, secure);
+
   if (!password) {
     throw new DeployDiffError('DeployDiff FTP authentication is not configured. Set a password with DeployDiff.', [
       {
@@ -62,6 +73,29 @@ export async function getFtpConnectionOptions(
     port,
     user,
     password,
-    secure
+    secure: mapSecurityModeToSecureOption(securityMode),
+    securityMode,
+    passiveModeStrategy,
+    timeoutMs
   };
+}
+
+function resolveSecurityMode(configuredSecurityMode: string, secure: boolean): FtpSecurityMode {
+  if (configuredSecurityMode === 'off' || configuredSecurityMode === 'explicit' || configuredSecurityMode === 'implicit') {
+    return configuredSecurityMode;
+  }
+
+  return secure ? 'explicit' : 'off';
+}
+
+function mapSecurityModeToSecureOption(securityMode: FtpSecurityMode): AccessOptions['secure'] {
+  switch (securityMode) {
+    case 'explicit':
+      return true;
+    case 'implicit':
+      return 'implicit';
+    case 'off':
+    default:
+      return false;
+  }
 }

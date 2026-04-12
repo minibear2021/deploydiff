@@ -199,7 +199,9 @@ suite('FTP configuration', () => {
     await configuration.update('ftp.host', 'ftp.example.com', vscode.ConfigurationTarget.WorkspaceFolder);
     await configuration.update('ftp.port', 2121, vscode.ConfigurationTarget.WorkspaceFolder);
     await configuration.update('ftp.username', 'deploy', vscode.ConfigurationTarget.WorkspaceFolder);
-    await configuration.update('ftp.secure', true, vscode.ConfigurationTarget.WorkspaceFolder);
+    await configuration.update('ftp.securityMode', 'implicit', vscode.ConfigurationTarget.WorkspaceFolder);
+    await configuration.update('ftp.passiveModeStrategy', 'ignorePasvAddress', vscode.ConfigurationTarget.WorkspaceFolder);
+    await configuration.update('ftp.timeoutMs', 15000, vscode.ConfigurationTarget.WorkspaceFolder);
     await api.secrets.store(DEPLOYDIFF_FTP_PASSWORD_SECRET_KEY, 'ftp-secret');
 
     const options = await getFtpConnectionOptions(workspaceFolder, api.secrets);
@@ -208,7 +210,10 @@ suite('FTP configuration', () => {
     assert.equal(options.port, 2121);
     assert.equal(options.user, 'deploy');
     assert.equal(options.password, 'ftp-secret');
-    assert.equal(options.secure, true);
+    assert.equal(options.secure, 'implicit');
+    assert.equal(options.securityMode, 'implicit');
+    assert.equal(options.passiveModeStrategy, 'ignorePasvAddress');
+    assert.equal(options.timeoutMs, 15000);
 
     await api.secrets.delete(DEPLOYDIFF_FTP_PASSWORD_SECRET_KEY);
   });

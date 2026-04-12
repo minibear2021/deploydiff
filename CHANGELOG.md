@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.2
+
+- Add advanced FTP options including explicit or implicit FTPS selection.
+- Add passive mode strategy control for FTP servers with broken PASV address responses.
+- Add configurable FTP timeout settings.
+
 ## 0.1.1
 
 - Remove the `Refresh Deployed Version` command entirely from menus, command palette registration, implementation, and docs.

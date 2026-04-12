@@ -34,7 +34,9 @@ Compare local files against deployed remote versions and sync changes in either 
   "deploydiff.ftp.host": "example.com",
   "deploydiff.ftp.port": 21,
   "deploydiff.ftp.username": "deploy",
-  "deploydiff.ftp.secure": false
+  "deploydiff.ftp.securityMode": "implicit",
+  "deploydiff.ftp.passiveModeStrategy": "ignorePasvAddress",
+  "deploydiff.ftp.timeoutMs": 10000
 }
 ```
 
@@ -64,7 +66,9 @@ Compare local files against deployed remote versions and sync changes in either 
 | `deploydiff.ftp.host` | `""` | FTP hostname or IP |
 | `deploydiff.ftp.port` | `21` | FTP port |
 | `deploydiff.ftp.username` | `""` | FTP username |
-| `deploydiff.ftp.secure` | `false` | Use FTPS (TLS) for FTP connections |
+| `deploydiff.ftp.securityMode` | `off` | FTP security mode: `off`, `explicit`, or `implicit` |
+| `deploydiff.ftp.passiveModeStrategy` | `default` | Passive mode strategy. `ignorePasvAddress` helps with NAT-broken PASV responses |
+| `deploydiff.ftp.timeoutMs` | `10000` | FTP timeout in milliseconds |
 | `deploydiff.sftp.host` | `""` | SFTP hostname or IP |
 | `deploydiff.sftp.port` | `22` | SFTP port |
 | `deploydiff.sftp.username` | `""` | SFTP username |
@@ -75,6 +79,11 @@ Compare local files against deployed remote versions and sync changes in either 
 - FTP and SFTP passwords are stored in VS Code Secret Storage, never written to settings files.
 - Private key authentication is supported via `deploydiff.sftp.privateKeyPath`.
 - All remote writes require explicit user action — compare is always read-only.
+
+FTP notes:
+
+- `deploydiff.ftp.securityMode = implicit` enables legacy implicit FTPS for servers that do not support explicit TLS negotiation.
+- DeployDiff uses passive FTP transfers. `deploydiff.ftp.passiveModeStrategy = ignorePasvAddress` forces the data connection to reuse the control host IP, which helps with some NAT or misconfigured server setups.
 
 ## Development
 

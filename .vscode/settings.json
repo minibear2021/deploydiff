@@ -18,5 +18,8 @@
     "deploydiff.ftp.host": "ftp.example.com",
     "deploydiff.ftp.port": 2121,
     "deploydiff.ftp.username": "deploy",
-    "deploydiff.ftp.secure": true
+    "deploydiff.ftp.secure": true,
+    "deploydiff.ftp.securityMode": "implicit",
+    "deploydiff.ftp.passiveModeStrategy": "ignorePasvAddress",
+    "deploydiff.ftp.timeoutMs": 15000
 }

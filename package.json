@@ -2,7 +2,7 @@
   "name": "deploydiff",
   "displayName": "DeployDiff",
   "description": "Compare local files with deployed remote versions and sync changes in either direction.",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "publisher": "minibear2021",
   "license": "MIT",
   "icon": "media/icon.png",
@@ -180,7 +180,35 @@
           "type": "boolean",
           "default": false,
           "scope": "resource",
-          "description": "Use FTPS (TLS) when connecting over FTP."
+          "markdownDeprecationMessage": "Use `deploydiff.ftp.securityMode` instead.",
+          "description": "Deprecated. Use FTPS (TLS) when connecting over FTP."
+        },
+        "deploydiff.ftp.securityMode": {
+          "type": "string",
+          "enum": [
+            "off",
+            "explicit",
+            "implicit"
+          ],
+          "default": "off",
+          "scope": "resource",
+          "description": "FTP security mode: plain FTP, explicit FTPS, or legacy implicit FTPS."
+        },
+        "deploydiff.ftp.passiveModeStrategy": {
+          "type": "string",
+          "enum": [
+            "default",
+            "ignorePasvAddress"
+          ],
+          "default": "default",
+          "scope": "resource",
+          "description": "Passive mode strategy. Use ignorePasvAddress for servers behind NAT that return an unusable PASV address."
+        },
+        "deploydiff.ftp.timeoutMs": {
+          "type": "number",
+          "default": 10000,
+          "scope": "resource",
+          "description": "FTP connection and operation timeout in milliseconds. Use 0 to disable the timeout."
         },
         "deploydiff.sftp.host": {
           "type": "string",

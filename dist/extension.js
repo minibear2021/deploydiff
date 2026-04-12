@@ -989,7 +989,7 @@ var require_transfer = __commonJS({
     exports2.enterPassiveModeIPv6 = enterPassiveModeIPv6;
     exports2.parseEpsvResponse = parseEpsvResponse;
     exports2.enterPassiveModeIPv4 = enterPassiveModeIPv4;
-    exports2.enterPassiveModeIPv4_forceControlHostIP = enterPassiveModeIPv4_forceControlHostIP;
+    exports2.enterPassiveModeIPv4_forceControlHostIP = enterPassiveModeIPv4_forceControlHostIP2;
     exports2.parsePasvResponse = parsePasvResponse;
     exports2.connectForPassiveTransfer = connectForPassiveTransfer;
     exports2.uploadFrom = uploadFrom;
@@ -1035,7 +1035,7 @@ var require_transfer = __commonJS({
       await connectForPassiveTransfer(target.host, target.port, ftp);
       return res;
     }
-    async function enterPassiveModeIPv4_forceControlHostIP(ftp) {
+    async function enterPassiveModeIPv4_forceControlHostIP2(ftp) {
       const res = await ftp.request("PASV");
       const target = parsePasvResponse(res.message);
       if (!target) {
@@ -2084,6 +2084,7 @@ var vscode4 = __toESM(require("vscode"));
 // src/remote/FtpRemoteFileProvider.ts
 var import_node_stream = require("node:stream");
 var import_basic_ftp = __toESM(require_dist());
+var import_transfer = __toESM(require_transfer());
 
 // src/remote/remotePath.ts
 function getRemoteParentDirectory(remotePath) {
@@ -2154,7 +2155,10 @@ var FtpRemoteFileProvider = class {
     });
   }
   async withClient(operation) {
-    const client = new import_basic_ftp.Client(1e4);
+    const client = new import_basic_ftp.Client(this.options.timeoutMs);
+    if (this.options.passiveModeStrategy === "ignorePasvAddress") {
+      client.prepareTransfer = import_transfer.enterPassiveModeIPv4_forceControlHostIP;
+    }
     try {
       await client.access(this.options);
       return await operation(client);
@@ -2181,7 +2185,10 @@ async function getFtpConnectionOptions(workspaceFolder, secrets) {
   const host = configuration.get("ftp.host", "").trim();
   const port = configuration.get("ftp.port", 21);
   const user = configuration.get("ftp.username", "").trim();
+  const configuredSecurityMode = configuration.get("ftp.securityMode", "").trim();
   const secure = configuration.get("ftp.secure", false);
+  const passiveModeStrategy = configuration.get("ftp.passiveModeStrategy", "default");
+  const timeoutMs = configuration.get("ftp.timeoutMs", 1e4);
   const password = await secrets.get(DEPLOYDIFF_FTP_PASSWORD_SECRET_KEY);
   if (!host) {
     throw new DeployDiffError("DeployDiff FTP host is not configured. Add deploydiff.ftp.host in workspace settings.", [
@@ -2202,6 +2209,10 @@ async function getFtpConnectionOptions(workspaceFolder, secrets) {
   if (!Number.isInteger(port) || port <= 0) {
     throw new Error("DeployDiff FTP port must be a positive integer.");
   }
+  if (!Number.isInteger(timeoutMs) || timeoutMs < 0) {
+    throw new Error("DeployDiff FTP timeout must be a non-negative integer in milliseconds.");
+  }
+  const securityMode = resolveSecurityMode(configuredSecurityMode, secure);
   if (!password) {
     throw new DeployDiffError("DeployDiff FTP authentication is not configured. Set a password with DeployDiff.", [
       {
@@ -2219,8 +2230,28 @@ async function getFtpConnectionOptions(workspaceFolder, secrets) {
     port,
     user,
     password,
-    secure
+    secure: mapSecurityModeToSecureOption(securityMode),
+    securityMode,
+    passiveModeStrategy,
+    timeoutMs
   };
+}
+function resolveSecurityMode(configuredSecurityMode, secure) {
+  if (configuredSecurityMode === "off" || configuredSecurityMode === "explicit" || configuredSecurityMode === "implicit") {
+    return configuredSecurityMode;
+  }
+  return secure ? "explicit" : "off";
+}
+function mapSecurityModeToSecureOption(securityMode) {
+  switch (securityMode) {
+    case "explicit":
+      return true;
+    case "implicit":
+      return "implicit";
+    case "off":
+    default:
+      return false;
+  }
 }
 
 // src/remote/MockRemoteFileProvider.ts
