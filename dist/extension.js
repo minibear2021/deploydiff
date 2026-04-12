@@ -908,14 +908,23 @@ async function openDeployedDiff(localFileUri, remoteDiffDocumentProvider) {
   await remoteDiffDocumentProvider.preload(localFileUri);
   const localDocument = await vscode8.workspace.openTextDocument(localFileUri);
   const remoteDocument = await vscode8.workspace.openTextDocument(createRemoteDocumentUri(localFileUri));
-  const fileName = localFileUri.path.split("/").pop() ?? localDocument.fileName;
-  const title = `Local: ${fileName} \u2194 Remote: ${fileName}`;
+  const title = createDeployedDiffTitle(localFileUri, remoteDocument.uri);
   if (remoteDocument.languageId !== localDocument.languageId) {
     await vscode8.languages.setTextDocumentLanguage(remoteDocument, localDocument.languageId);
   }
   await vscode8.commands.executeCommand("vscode.diff", localFileUri, remoteDocument.uri, title, {
     preview: false
   });
+}
+function createDeployedDiffTitle(leftUri, rightUri) {
+  const localUri = isRemoteDocumentUri(leftUri) ? rightUri : leftUri;
+  const remoteUri = isRemoteDocumentUri(leftUri) ? leftUri : rightUri;
+  return `${createSideLabel(localUri)} \u2194 ${createSideLabel(remoteUri)}`;
+}
+function createSideLabel(uri) {
+  const fileName = uri.path.split("/").pop() ?? uri.toString();
+  const role = uri.scheme === DEPLOYDIFF_REMOTE_DOCUMENT_SCHEME || isRemoteDocumentUri(uri) ? "remote" : "local";
+  return `${fileName}(${role})`;
 }
 
 // src/commands/compareWithDeployed.ts
