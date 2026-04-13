@@ -18,6 +18,13 @@ import {
 import { DeployDiffLogger } from './logging/outputLogger';
 import { DeploymentStatusIndicator } from './status/deploymentStatusIndicator';
 import { DiffDirectionIndicator } from './status/diffDirectionIndicator';
+import { DiffSessionManager } from './sidebar/diffSessionManager';
+import { DeployDiffSidebarProvider } from './sidebar/sidebarProvider';
+import {
+  registerOpenDiffSessionCommand,
+  registerRemoveDiffSessionCommand,
+  registerSaveAllDiffSessionsCommand
+} from './sidebar/diffSessionCommands';
 
 export type DeployDiffExtensionApi = {
   secrets: vscode.SecretStorage;
@@ -28,18 +35,33 @@ export function activate(context: vscode.ExtensionContext): DeployDiffExtensionA
   const remoteDiffDocumentProvider = new RemoteDiffDocumentProvider(context.secrets, logger);
   const deploymentStatusIndicator = new DeploymentStatusIndicator(remoteDiffDocumentProvider);
   const diffDirectionIndicator = new DiffDirectionIndicator();
+  const diffSessionManager = new DiffSessionManager();
+  const sidebarProvider = new DeployDiffSidebarProvider(diffSessionManager);
 
   logger.info('DeployDiff extension activated');
+
+  const sidebarView = vscode.window.createTreeView('deploydiff.diffSessions', {
+    treeDataProvider: sidebarProvider,
+    showCollapseAll: false
+  });
 
   context.subscriptions.push(
     logger,
     deploymentStatusIndicator,
     diffDirectionIndicator,
+    sidebarProvider,
+    sidebarView,
     vscode.window.onDidChangeActiveTextEditor(() => deploymentStatusIndicator.update()),
     vscode.workspace.onDidChangeConfiguration((event) => {
       if (event.affectsConfiguration('deploydiff')) {
         deploymentStatusIndicator.update();
       }
+    }),
+    vscode.workspace.onDidCloseTextDocument(() => {
+      diffSessionManager.pruneClosedSessions();
+    }),
+    vscode.window.onDidChangeVisibleTextEditors(() => {
+      diffSessionManager.pruneClosedSessions();
     }),
     vscode.workspace.registerFileSystemProvider(
       DEPLOYDIFF_REMOTE_DOCUMENT_SCHEME,
@@ -49,14 +71,17 @@ export function activate(context: vscode.ExtensionContext): DeployDiffExtensionA
         isReadonly: false
       }
     ),
-    registerCompareWithDeployedCommand(remoteDiffDocumentProvider, logger),
+    registerCompareWithDeployedCommand(remoteDiffDocumentProvider, logger, diffSessionManager),
     registerUploadToRemoteCommand(context, remoteDiffDocumentProvider, logger),
     registerDownloadFromRemoteCommand(context, remoteDiffDocumentProvider, logger),
     registerShowOutputCommand(logger),
     registerSetFtpPasswordCommand(context, logger),
     registerClearFtpPasswordCommand(context, logger),
     registerSetSftpPasswordCommand(context, logger),
-    registerClearSftpPasswordCommand(context, logger)
+    registerClearSftpPasswordCommand(context, logger),
+    registerOpenDiffSessionCommand(diffSessionManager, remoteDiffDocumentProvider, logger),
+    registerSaveAllDiffSessionsCommand(diffSessionManager, logger),
+    registerRemoveDiffSessionCommand(diffSessionManager)
   );
 
   return {

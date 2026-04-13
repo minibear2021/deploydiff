@@ -31,6 +31,23 @@
   ],
   "main": "./dist/extension.js",
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "deploydiff-sidebar",
+          "title": "DeployDiff",
+          "icon": "media/icon.png"
+        }
+      ]
+    },
+    "views": {
+      "deploydiff-sidebar": [
+        {
+          "id": "deploydiff.diffSessions",
+          "name": "Diff Sessions"
+        }
+      ]
+    },
     "commands": [
       {
         "command": "deploydiff.compareWithDeployedVersion",
@@ -71,9 +88,39 @@
         "command": "deploydiff.clearSftpPassword",
         "title": "Clear SFTP Password",
         "category": "DeployDiff"
+      },
+      {
+        "command": "deploydiff.openDiffSession",
+        "title": "Open Diff Session",
+        "category": "DeployDiff"
+      },
+      {
+        "command": "deploydiff.saveAllDiffSessions",
+        "title": "Save All",
+        "category": "DeployDiff",
+        "icon": "$(save-all)"
+      },
+      {
+        "command": "deploydiff.removeDiffSession",
+        "title": "Remove from List",
+        "category": "DeployDiff"
       }
     ],
     "menus": {
+      "view/title": [
+        {
+          "command": "deploydiff.saveAllDiffSessions",
+          "when": "view == deploydiff.diffSessions",
+          "group": "navigation@1"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "deploydiff.removeDiffSession",
+          "when": "view == deploydiff.diffSessions && viewItem == diffSession",
+          "group": "inline@1"
+        }
+      ],
       "explorer/context": [
         {
           "command": "deploydiff.compareWithDeployedVersion",

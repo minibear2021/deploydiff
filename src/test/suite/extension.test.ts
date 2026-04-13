@@ -17,6 +17,8 @@ import { createRemoteFileProvider } from '../../remote/RemoteFileProvider';
 import { detectSyncConflict } from '../../sync/conflictDetection';
 import { DeployDiffExtensionApi } from '../../extension';
 import { DeployDiffLogger, describeError } from '../../logging/outputLogger';
+import { DiffSessionManager } from '../../sidebar/diffSessionManager';
+import { DeployDiffSidebarProvider } from '../../sidebar/sidebarProvider';
 
 function createWorkspaceFolder(fsPath: string): vscode.WorkspaceFolder {
   return {
@@ -258,5 +260,61 @@ suite('SFTP configuration', () => {
     assert.equal(options.password, 'secret');
 
     await api.secrets.delete(DEPLOYDIFF_SFTP_PASSWORD_SECRET_KEY);
+  });
+});
+
+suite('Diff session manager', () => {
+  test('adds and retrieves sessions', () => {
+    const manager = new DiffSessionManager();
+    const localUri = vscode.Uri.file('/workspace/app/src/example.ts');
+    const remoteUri = vscode.Uri.parse('deploydiff-remote:/workspace/app/src/example.ts?file%3A%2F%2F%2Fworkspace%2Fapp%2Fsrc%2Fexample.ts');
+
+    manager.addOrUpdate({ localUri, remoteUri });
+
+    assert.equal(manager.getAll().length, 1);
+    assert.equal(manager.findByLocalUri(localUri)?.remoteUri.toString(), remoteUri.toString());
+  });
+
+  test('removes a session by local uri', () => {
+    const manager = new DiffSessionManager();
+    const localUri = vscode.Uri.file('/workspace/app/src/example.ts');
+    const remoteUri = vscode.Uri.parse('deploydiff-remote:/workspace/app/src/example.ts');
+
+    manager.addOrUpdate({ localUri, remoteUri });
+    manager.remove(localUri);
+
+    assert.equal(manager.getAll().length, 0);
+    assert.equal(manager.findByLocalUri(localUri), undefined);
+  });
+});
+
+suite('Sidebar provider', () => {
+  test('tree item uses file name as label', () => {
+    const manager = new DiffSessionManager();
+    const provider = new DeployDiffSidebarProvider(manager);
+    const localUri = vscode.Uri.file('/workspace/app/src/example.ts');
+    const remoteUri = vscode.Uri.parse('deploydiff-remote:/workspace/app/src/example.ts');
+
+    manager.addOrUpdate({ localUri, remoteUri });
+    const children = provider.getChildren();
+
+    assert.equal(children.length, 1);
+    assert.equal(children[0].label, 'example.ts');
+    assert.equal(children[0].description, vscode.workspace.asRelativePath(localUri));
+  });
+});
+
+suite('Diff session commands', () => {
+  test('commands are registered', async () => {
+    const extension = vscode.extensions.getExtension('minibear2021.deploydiff');
+    assert.ok(extension);
+
+    await extension.activate();
+
+    const commands = await vscode.commands.getCommands(true);
+
+    assert.ok(commands.includes('deploydiff.openDiffSession'));
+    assert.ok(commands.includes('deploydiff.saveAllDiffSessions'));
+    assert.ok(commands.includes('deploydiff.removeDiffSession'));
   });
 });
