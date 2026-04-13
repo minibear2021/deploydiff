@@ -2,7 +2,7 @@
   "name": "deploydiff",
   "displayName": "DeployDiff",
   "description": "Compare local files with deployed remote versions and sync changes in either direction.",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "publisher": "minibear2021",
   "license": "MIT",
   "icon": "media/icon.png",
@@ -36,7 +36,7 @@
         {
           "id": "deploydiff-sidebar",
           "title": "DeployDiff",
-          "icon": "media/icon.png"
+          "icon": "media/sidebar_icon.svg"
         }
       ]
     },
@@ -102,7 +102,7 @@
       },
       {
         "command": "deploydiff.removeDiffSession",
-        "title": "Remove from List",
+        "title": "Remove",
         "category": "DeployDiff"
       }
     ],

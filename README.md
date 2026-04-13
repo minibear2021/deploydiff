@@ -9,9 +9,11 @@ Compare local files against deployed remote versions and sync changes in either 
 ## Features
 
 - **Compare with Deployed Version** — Open VS Code's built-in diff editor to see line-level differences between any local file and its deployed counterpart.
+- **Diff Sessions sidebar** — View all active compares in one place, switch between diffs with a click, and remove sessions when you're done.
+- **Save All** — Batch-save unsaved changes across every open diff session in one action, for both local and remote documents.
 - **Bidirectional sync** — Swap the diff sides and use VS Code's native Revert Block to push changes in either direction. A status bar indicator always shows which side is local and which is remote.
 - **Writable remote pane** — Edit the remote side directly in the diff editor; saving writes back to the server.
-- **Upload / Download for files and directories** — Explicit one-click sync commands from the explorer or editor context menu with conflict detection. Directory sync works recursively.
+- **Upload / Download for files and directories** — Explicit one-click sync commands from the explorer or editor context menu with conflict detection. Directory sync works recursively. Supports multi-select in the Explorer.
 - **FTP and SFTP transports** — FTP supports password auth plus explicit or implicit FTPS options, and SFTP supports password or private-key auth. Passwords are stored in VS Code Secret Storage, never in settings files.
 - **Multiple mappings** — Map several local directories to different remote roots within the same workspace.
 - **Output logging for troubleshooting** — Remote compare/sync operations write detailed diagnostics to the `DeployDiff` output channel, with quick access from error toasts.
@@ -73,23 +75,27 @@ SFTP example:
 ```
 
 3. For FTP password auth, run **DeployDiff: Set FTP Password**. For SFTP password auth, run **DeployDiff: Set SFTP Password** if you are not using `deploydiff.sftp.privateKeyPath`.
-4. Right-click a file in the Explorer → **Compare with Deployed Version**.
-5. To sync directly, right-click a file or directory and use **Upload to Remote** or **Download from Remote**.
-6. If a compare or sync fails, use **DeployDiff: Show Output Logs** or the toast action to inspect the detailed log output.
-7. In the diff editor, use the swap button (↔) to flip sides, then **Revert Block** to push changes left or right. The status bar shows the current direction.
+4. Right-click a file in the Explorer → **Compare with Deployed Version**. You can also select multiple files and compare them all at once.
+5. To sync directly, right-click a file or directory and use **Upload to Remote** or **Download from Remote**. Multi-select is supported for both actions.
+6. Open the **DeployDiff** sidebar to see all active diff sessions, switch between them, or click **Save All** to persist every unsaved change in one go.
+7. If a compare or sync fails, use **DeployDiff: Show Output Logs** or the toast action to inspect the detailed log output.
+8. In the diff editor, use the swap button (↔) to flip sides, then **Revert Block** to push changes left or right. The status bar shows the current direction.
 
 ## Commands
 
 | Command | Description |
 |---|---|
-| `DeployDiff: Compare with Deployed Version` | Open a diff between the local file and its deployed remote copy |
-| `DeployDiff: Upload to Remote` | Push the selected local file or directory to the remote server |
-| `DeployDiff: Download from Remote` | Pull the remote file or directory to the local workspace |
+| `DeployDiff: Compare with Deployed Version` | Open a diff between the local file(s) and their deployed remote copies |
+| `DeployDiff: Upload to Remote` | Push the selected local file(s) or directory to the remote server |
+| `DeployDiff: Download from Remote` | Pull the remote file(s) or directory to the local workspace |
 | `DeployDiff: Set FTP Password` | Store the FTP password in VS Code Secret Storage |
 | `DeployDiff: Clear FTP Password` | Remove the stored FTP password |
 | `DeployDiff: Show Output Logs` | Open the DeployDiff output channel |
 | `DeployDiff: Set SFTP Password` | Store the SFTP password in VS Code Secret Storage |
 | `DeployDiff: Clear SFTP Password` | Remove the stored SFTP password |
+| `DeployDiff: Open Diff Session` | Reveal a tracked diff session from the sidebar |
+| `DeployDiff: Save All` | Save all unsaved local and remote changes across tracked diff sessions |
+| `DeployDiff: Remove` | Manually remove a session from the Diff Sessions sidebar |
 
 ## Configuration
 

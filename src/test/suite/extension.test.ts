@@ -300,7 +300,7 @@ suite('Sidebar provider', () => {
 
     assert.equal(children.length, 1);
     assert.equal(children[0].label, 'example.ts');
-    assert.equal(children[0].description, vscode.workspace.asRelativePath(localUri));
+    assert.equal(children[0].description, `${vscode.workspace.asRelativePath(localUri)} (local ↔ remote)`);
   });
 });
 

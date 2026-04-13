@@ -12,62 +12,84 @@ export function registerDownloadFromRemoteCommand(
   remoteDiffDocumentProvider: RemoteDiffDocumentProvider,
   logger: DeployDiffLogger
 ): vscode.Disposable {
-  return registerDeployCommand('deploydiff.downloadFromRemote', logger, async (resource?: vscode.Uri) => {
-    const localFileUri = getOrResolveResourceUri(resource);
-    const target = resolveDeploymentTarget(localFileUri);
-    const configuration = vscode.workspace.getConfiguration('deploydiff', target.workspaceFolder.uri);
-    const confirmSync = configuration.get<boolean>('confirmSync', true);
-    const provider = await createRemoteFileProvider(target.workspaceFolder, context.secrets, logger);
-    const remoteMetadata = await provider.stat(target.remoteFilePath);
-    const isDirectory = remoteMetadata.type === 'directory';
-
-    logger.info('Preparing download', {
-      localFile: localFileUri.fsPath,
-      remotePath: target.remoteFilePath,
-      isDirectory
-    });
-
-    if (confirmSync) {
-      const answer = await vscode.window.showWarningMessage(
-        isDirectory
-          ? `Replace local directory ${target.relativePath || '.'} with the deployed contents from ${target.remoteFilePath}?`
-          : `Replace local file ${target.relativePath} with the deployed version from ${target.mapping.remoteRoot}?`,
-        { modal: true },
-        'Download'
-      );
-      if (answer !== 'Download') {
-        logger.info('Download cancelled by user', {
-          localFile: localFileUri.fsPath,
-          remotePath: target.remoteFilePath
-        });
-        return;
-      }
+  return registerDeployCommand('deploydiff.downloadFromRemote', logger, async (resource?: vscode.Uri | vscode.Uri[]) => {
+    const uris: vscode.Uri[] = [];
+    if (Array.isArray(resource)) {
+      uris.push(...resource);
+    } else if (resource) {
+      uris.push(resource);
+    } else {
+      uris.push(getOrResolveResourceUri(undefined));
     }
 
-    if (isDirectory) {
-      const summary = { filesDownloaded: 0, directoriesCreated: 0 };
-      await downloadDirectoryFromRemote(localFileUri, target.remoteFilePath, provider, summary, logger);
-      logger.info('Download completed', {
+    for (const localFileUri of uris) {
+      if (localFileUri.scheme !== 'file') {
+        continue;
+      }
+      await downloadSingle(localFileUri, context, remoteDiffDocumentProvider, logger);
+    }
+  });
+}
+
+async function downloadSingle(
+  localFileUri: vscode.Uri,
+  context: vscode.ExtensionContext,
+  remoteDiffDocumentProvider: RemoteDiffDocumentProvider,
+  logger: DeployDiffLogger
+): Promise<void> {
+  const target = resolveDeploymentTarget(localFileUri);
+  const configuration = vscode.workspace.getConfiguration('deploydiff', target.workspaceFolder.uri);
+  const confirmSync = configuration.get<boolean>('confirmSync', true);
+  const provider = await createRemoteFileProvider(target.workspaceFolder, context.secrets, logger);
+  const remoteMetadata = await provider.stat(target.remoteFilePath);
+  const isDirectory = remoteMetadata.type === 'directory';
+
+  logger.info('Preparing download', {
+    localFile: localFileUri.fsPath,
+    remotePath: target.remoteFilePath,
+    isDirectory
+  });
+
+  if (confirmSync) {
+    const answer = await vscode.window.showWarningMessage(
+      isDirectory
+        ? `Replace local directory ${target.relativePath || '.'} with the deployed contents from ${target.remoteFilePath}?`
+        : `Replace local file ${target.relativePath} with the deployed version from ${target.mapping.remoteRoot}?`,
+      { modal: true },
+      'Download'
+    );
+    if (answer !== 'Download') {
+      logger.info('Download cancelled by user', {
         localFile: localFileUri.fsPath,
-        remotePath: target.remoteFilePath,
-        filesDownloaded: summary.filesDownloaded,
-        directoriesCreated: summary.directoriesCreated
+        remotePath: target.remoteFilePath
       });
-      await vscode.window.showInformationMessage(
-        `Downloaded ${summary.filesDownloaded} file(s) from ${target.remoteFilePath} to ${target.relativePath || '.'}.`
-      );
       return;
     }
+  }
 
-    await downloadFileFromRemote(localFileUri, target.remoteFilePath, provider, target.relativePath, logger);
-    remoteDiffDocumentProvider.refresh(localFileUri);
+  if (isDirectory) {
+    const summary = { filesDownloaded: 0, directoriesCreated: 0 };
+    await downloadDirectoryFromRemote(localFileUri, target.remoteFilePath, provider, summary, logger);
     logger.info('Download completed', {
       localFile: localFileUri.fsPath,
       remotePath: target.remoteFilePath,
-      filesDownloaded: 1
+      filesDownloaded: summary.filesDownloaded,
+      directoriesCreated: summary.directoriesCreated
     });
-    await vscode.window.showInformationMessage(`Downloaded ${target.remoteFilePath} to ${target.relativePath}.`);
+    await vscode.window.showInformationMessage(
+      `Downloaded ${summary.filesDownloaded} file(s) from ${target.remoteFilePath} to ${target.relativePath || '.'}.`
+    );
+    return;
+  }
+
+  await downloadFileFromRemote(localFileUri, target.remoteFilePath, provider, target.relativePath, logger);
+  remoteDiffDocumentProvider.refresh(localFileUri);
+  logger.info('Download completed', {
+    localFile: localFileUri.fsPath,
+    remotePath: target.remoteFilePath,
+    filesDownloaded: 1
   });
+  await vscode.window.showInformationMessage(`Downloaded ${target.remoteFilePath} to ${target.relativePath}.`);
 }
 
 async function downloadDirectoryFromRemote(

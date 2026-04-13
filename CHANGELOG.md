@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.6
+
+- Add a **Diff Sessions** sidebar in the Activity Bar that tracks all active "Compare with Deployed Version" sessions.
+- Add **Save All** action to the sidebar to batch-save unsaved changes across both local and remote diff panes.
+- Support multi-select in the Explorer for **Compare with Deployed Version**, **Upload to Remote**, and **Download from Remote**.
+- Sidebar items show a dirty indicator when local or remote documents have unsaved changes.
+- Clicking a sidebar item reveals or re-opens the corresponding diff editor.
+- Diff sessions are automatically removed from the sidebar when their diff tabs are closed.
+
 ## 0.1.5
 
 - Remove the mock transport implementation and all related configuration, tests, and generated artifacts.

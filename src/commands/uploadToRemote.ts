@@ -12,62 +12,84 @@ export function registerUploadToRemoteCommand(
   remoteDiffDocumentProvider: RemoteDiffDocumentProvider,
   logger: DeployDiffLogger
 ): vscode.Disposable {
-  return registerDeployCommand('deploydiff.uploadToRemote', logger, async (resource?: vscode.Uri) => {
-    const localFileUri = getOrResolveResourceUri(resource);
-    const target = resolveDeploymentTarget(localFileUri);
-    const configuration = vscode.workspace.getConfiguration('deploydiff', target.workspaceFolder.uri);
-    const confirmSync = configuration.get<boolean>('confirmSync', true);
-    const provider = await createRemoteFileProvider(target.workspaceFolder, context.secrets, logger);
-    const localStat = await vscode.workspace.fs.stat(localFileUri);
-    const isDirectory = (localStat.type & vscode.FileType.Directory) !== 0;
-
-    logger.info('Preparing upload', {
-      localFile: localFileUri.fsPath,
-      remotePath: target.remoteFilePath,
-      isDirectory
-    });
-
-    if (confirmSync) {
-      const answer = await vscode.window.showWarningMessage(
-        isDirectory
-          ? `Upload directory ${target.relativePath || '.'} to ${target.remoteFilePath}?`
-          : `Upload ${target.relativePath} to ${target.mapping.remoteRoot}?`,
-        { modal: true },
-        'Upload'
-      );
-      if (answer !== 'Upload') {
-        logger.info('Upload cancelled by user', {
-          localFile: localFileUri.fsPath,
-          remotePath: target.remoteFilePath
-        });
-        return;
-      }
+  return registerDeployCommand('deploydiff.uploadToRemote', logger, async (resource?: vscode.Uri | vscode.Uri[]) => {
+    const uris: vscode.Uri[] = [];
+    if (Array.isArray(resource)) {
+      uris.push(...resource);
+    } else if (resource) {
+      uris.push(resource);
+    } else {
+      uris.push(getOrResolveResourceUri(undefined));
     }
 
-    if (isDirectory) {
-      const summary = { filesUploaded: 0, directoriesCreated: 0 };
-      await uploadDirectoryToRemote(localFileUri, target.remoteFilePath, provider, summary, logger);
-      logger.info('Upload completed', {
+    for (const localFileUri of uris) {
+      if (localFileUri.scheme !== 'file') {
+        continue;
+      }
+      await uploadSingle(localFileUri, context, remoteDiffDocumentProvider, logger);
+    }
+  });
+}
+
+async function uploadSingle(
+  localFileUri: vscode.Uri,
+  context: vscode.ExtensionContext,
+  remoteDiffDocumentProvider: RemoteDiffDocumentProvider,
+  logger: DeployDiffLogger
+): Promise<void> {
+  const target = resolveDeploymentTarget(localFileUri);
+  const configuration = vscode.workspace.getConfiguration('deploydiff', target.workspaceFolder.uri);
+  const confirmSync = configuration.get<boolean>('confirmSync', true);
+  const provider = await createRemoteFileProvider(target.workspaceFolder, context.secrets, logger);
+  const localStat = await vscode.workspace.fs.stat(localFileUri);
+  const isDirectory = (localStat.type & vscode.FileType.Directory) !== 0;
+
+  logger.info('Preparing upload', {
+    localFile: localFileUri.fsPath,
+    remotePath: target.remoteFilePath,
+    isDirectory
+  });
+
+  if (confirmSync) {
+    const answer = await vscode.window.showWarningMessage(
+      isDirectory
+        ? `Upload directory ${target.relativePath || '.'} to ${target.remoteFilePath}?`
+        : `Upload ${target.relativePath} to ${target.mapping.remoteRoot}?`,
+      { modal: true },
+      'Upload'
+    );
+    if (answer !== 'Upload') {
+      logger.info('Upload cancelled by user', {
         localFile: localFileUri.fsPath,
-        remotePath: target.remoteFilePath,
-        filesUploaded: summary.filesUploaded,
-        directoriesCreated: summary.directoriesCreated
+        remotePath: target.remoteFilePath
       });
-      await vscode.window.showInformationMessage(
-        `Uploaded ${summary.filesUploaded} file(s) from ${target.relativePath || '.'} to ${target.remoteFilePath}.`
-      );
       return;
     }
+  }
 
-    await uploadFileToRemote(localFileUri, target.remoteFilePath, provider, target.relativePath, logger);
-    remoteDiffDocumentProvider.refresh(localFileUri);
+  if (isDirectory) {
+    const summary = { filesUploaded: 0, directoriesCreated: 0 };
+    await uploadDirectoryToRemote(localFileUri, target.remoteFilePath, provider, summary, logger);
     logger.info('Upload completed', {
       localFile: localFileUri.fsPath,
       remotePath: target.remoteFilePath,
-      filesUploaded: 1
+      filesUploaded: summary.filesUploaded,
+      directoriesCreated: summary.directoriesCreated
     });
-    await vscode.window.showInformationMessage(`Uploaded ${target.relativePath} to ${target.remoteFilePath}.`);
+    await vscode.window.showInformationMessage(
+      `Uploaded ${summary.filesUploaded} file(s) from ${target.relativePath || '.'} to ${target.remoteFilePath}.`
+    );
+    return;
+  }
+
+  await uploadFileToRemote(localFileUri, target.remoteFilePath, provider, target.relativePath, logger);
+  remoteDiffDocumentProvider.refresh(localFileUri);
+  logger.info('Upload completed', {
+    localFile: localFileUri.fsPath,
+    remotePath: target.remoteFilePath,
+    filesUploaded: 1
   });
+  await vscode.window.showInformationMessage(`Uploaded ${target.relativePath} to ${target.remoteFilePath}.`);
 }
 
 async function uploadDirectoryToRemote(

@@ -4,13 +4,35 @@ import { DiffSessionManager } from './diffSessionManager';
 
 export const OPEN_DIFF_SESSION_COMMAND_ID = 'deploydiff.openDiffSession';
 
+function getSessionDirectionLabel(session: DiffSession): string {
+  for (const group of vscode.window.tabGroups.all) {
+    for (const tab of group.tabs) {
+      if (tab.input instanceof vscode.TabInputTextDiff) {
+        const input = tab.input;
+        const matchesSession =
+          input.original.toString() === session.localUri.toString() &&
+          input.modified.toString() === session.remoteUri.toString();
+        const matchesSwapped =
+          input.original.toString() === session.remoteUri.toString() &&
+          input.modified.toString() === session.localUri.toString();
+        if (matchesSession || matchesSwapped) {
+          const originalIsLocal = input.original.toString() === session.localUri.toString();
+          return originalIsLocal ? '(local ↔ remote)' : '(remote ↔ local)';
+        }
+      }
+    }
+  }
+  return '(local ↔ remote)';
+}
+
 export class DiffSessionTreeItem extends vscode.TreeItem {
   public constructor(public readonly session: DiffSession) {
     const fileName = session.localUri.path.split('/').pop() ?? session.localUri.toString();
     const isDirty = DiffSessionTreeItem.isSessionDirty(session);
     super(fileName, vscode.TreeItemCollapsibleState.None);
 
-    this.description = vscode.workspace.asRelativePath(session.localUri);
+    const directionLabel = getSessionDirectionLabel(session);
+    this.description = `${vscode.workspace.asRelativePath(session.localUri)} ${directionLabel}`;
     this.tooltip = session.localUri.fsPath;
     this.contextValue = 'diffSession';
     this.iconPath = new vscode.ThemeIcon('file');
@@ -39,6 +61,7 @@ export class DiffSessionTreeItem extends vscode.TreeItem {
 export class DeployDiffSidebarProvider implements vscode.TreeDataProvider<DiffSessionTreeItem>, vscode.Disposable {
   private readonly didChangeTreeDataEmitter = new vscode.EventEmitter<DiffSessionTreeItem | void>();
   private readonly textDocumentChangeDisposable: vscode.Disposable;
+  private readonly tabGroupsChangeDisposable: vscode.Disposable;
 
   public readonly onDidChangeTreeData = this.didChangeTreeDataEmitter.event;
 
@@ -46,10 +69,12 @@ export class DeployDiffSidebarProvider implements vscode.TreeDataProvider<DiffSe
     this.manager.onDidChange(() => this.refresh());
 
     this.textDocumentChangeDisposable = vscode.workspace.onDidChangeTextDocument(() => this.refresh());
+    this.tabGroupsChangeDisposable = vscode.window.tabGroups.onDidChangeTabs(() => this.refresh());
   }
 
   public dispose(): void {
     this.textDocumentChangeDisposable.dispose();
+    this.tabGroupsChangeDisposable.dispose();
     this.didChangeTreeDataEmitter.dispose();
   }
 

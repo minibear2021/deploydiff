@@ -5,22 +5,37 @@ import { DeployDiffLogger } from '../logging/outputLogger';
 
 const SHOW_LOGS_ACTION_LABEL = 'Show Logs';
 
+function resourceToLogString(resource?: vscode.Uri | vscode.Uri[]): string | undefined {
+  if (Array.isArray(resource)) {
+    return `[${resource.map((uri) => uri.toString()).join(', ')}]`;
+  }
+  return resource?.toString();
+}
+
 export function registerDeployCommand(
   commandId: string,
   logger: DeployDiffLogger,
-  handler: (resource?: vscode.Uri) => Promise<void>
+  handler: (resource?: vscode.Uri | vscode.Uri[]) => Promise<void>
 ): vscode.Disposable {
-  return vscode.commands.registerCommand(commandId, async (resource?: vscode.Uri) => {
+  return vscode.commands.registerCommand(commandId, async (resource?: vscode.Uri, ...args: unknown[]) => {
+    // Explorer multi-select: first arg is the right-clicked item, second arg is the selected items array.
+    const selectedResources = args[0] as vscode.Uri[] | undefined;
+    const effectiveResource: vscode.Uri | vscode.Uri[] | undefined =
+      Array.isArray(selectedResources) && selectedResources.length > 0
+        ? selectedResources
+        : resource;
+
+    const resourceLog = resourceToLogString(effectiveResource);
     logger.info('Command started', {
       commandId,
-      resource: resource?.toString()
+      resource: resourceLog
     });
 
     try {
-      await handler(resource);
+      await handler(effectiveResource);
       logger.info('Command completed', {
         commandId,
-        resource: resource?.toString()
+        resource: resourceLog
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown DeployDiff error.';
@@ -28,7 +43,7 @@ export function registerDeployCommand(
 
       logger.error('Command failed', error, {
         commandId,
-        resource: resource?.toString()
+        resource: resourceLog
       });
       logger.show(false);
 

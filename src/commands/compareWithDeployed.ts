@@ -12,12 +12,39 @@ export function registerCompareWithDeployedCommand(
   logger: DeployDiffLogger,
   diffSessionManager: DiffSessionManager
 ): vscode.Disposable {
-  return registerDeployCommand('deploydiff.compareWithDeployedVersion', logger, async (resource?: vscode.Uri) => {
-    const localFileUri = getOrResolveResourceUri(resource);
-    await openDeployedDiff(localFileUri, remoteDiffDocumentProvider, logger);
-    diffSessionManager.addOrUpdate({
-      localUri: localFileUri,
-      remoteUri: createRemoteDocumentUri(localFileUri)
-    });
+  return registerDeployCommand('deploydiff.compareWithDeployedVersion', logger, async (resource?: vscode.Uri | vscode.Uri[]) => {
+    const uris: vscode.Uri[] = [];
+    if (Array.isArray(resource)) {
+      uris.push(...resource);
+    } else if (resource) {
+      uris.push(resource);
+    } else {
+      uris.push(getOrResolveResourceUri(undefined));
+    }
+
+    let openedCount = 0;
+    const failedNames: string[] = [];
+
+    for (const localFileUri of uris) {
+      if (localFileUri.scheme !== 'file') {
+        continue;
+      }
+      try {
+        await openDeployedDiff(localFileUri, remoteDiffDocumentProvider, logger);
+        diffSessionManager.addOrUpdate({
+          localUri: localFileUri,
+          remoteUri: createRemoteDocumentUri(localFileUri)
+        });
+        openedCount++;
+      } catch (error) {
+        const name = localFileUri.path.split('/').pop() ?? localFileUri.toString();
+        failedNames.push(name);
+        logger.error('Failed to compare file', error, { localFile: localFileUri.fsPath });
+      }
+    }
+
+    if (failedNames.length > 0 && openedCount === 0) {
+      throw new Error(`Could not compare ${failedNames.join(', ')}. See the DeployDiff output channel for details.`);
+    }
   });
 }
