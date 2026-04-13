@@ -3,7 +3,6 @@ import { DeployDiffError } from '../errors/DeployDiffError';
 import { DeployDiffLogger } from '../logging/outputLogger';
 import { FtpRemoteFileProvider } from './FtpRemoteFileProvider';
 import { getFtpConnectionOptions } from './ftpConfiguration';
-import { MockRemoteFileProvider } from './MockRemoteFileProvider';
 import { SftpRemoteFileProvider } from './SftpRemoteFileProvider';
 import { getSftpConnectionOptions } from './sftpConfiguration';
 
@@ -44,7 +43,7 @@ export async function createRemoteFileProvider(
 
   if (!transport) {
     throw new DeployDiffError(
-      'DeployDiff requires "deploydiff.transport" to be set explicitly. Choose "ftp", "sftp", or "mock" in workspace settings.',
+      'DeployDiff requires "deploydiff.transport" to be set explicitly. Choose "ftp" or "sftp" in workspace settings.',
       [
         {
           label: 'Open Settings',
@@ -56,8 +55,6 @@ export async function createRemoteFileProvider(
   }
 
   switch (transport) {
-    case 'mock':
-      return new MockRemoteFileProvider(workspaceFolder, logger);
     case 'ftp':
       return new FtpRemoteFileProvider(await getFtpConnectionOptions(workspaceFolder, secrets), logger);
     case 'sftp':

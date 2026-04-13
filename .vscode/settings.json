@@ -12,11 +12,6 @@
     ],
     "deploydiff.confirmSync": true,
     "deploydiff.transport": "sftp",
-    "deploydiff.mockRemoteFiles": {
-        "/var/www/app/src/example.ts": "remote-content",
-        "/var/www/app/src/features/one.ts": "one",
-        "/var/www/app/src/features/two.ts": "two"
-    },
     "deploydiff.ftp.host": "ftp.example.com",
     "deploydiff.ftp.port": 2121,
     "deploydiff.ftp.username": "deploy",

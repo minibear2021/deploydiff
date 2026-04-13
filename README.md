@@ -20,7 +20,7 @@ Compare local files against deployed remote versions and sync changes in either 
 ## Quick Start
 
 1. Install the extension from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=minibear2021.deploydiff).
-2. Open your workspace settings and configure `deploydiff.transport` explicitly, plus one or more deployment mappings.
+2. Open your workspace settings and configure `deploydiff.transport` explicitly as `ftp` or `sftp`, plus one or more deployment mappings.
 
 FTP example:
 
@@ -95,7 +95,7 @@ SFTP example:
 
 | Setting | Default | Description |
 |---|---|---|
-| `deploydiff.transport` | Required | Transport type: `mock`, `ftp`, or `sftp`. Must be set explicitly |
+| `deploydiff.transport` | Required | Transport type: `ftp` or `sftp`. Must be set explicitly |
 | `deploydiff.mappings` | `[]` | Array of `{ name, localPath, remotePath }` mapping objects |
 | `deploydiff.confirmSync` | `true` | Prompt before overwriting during upload/download |
 | `deploydiff.ftp.host` | `""` | FTP hostname or IP |

@@ -2,7 +2,7 @@
   "name": "deploydiff",
   "displayName": "DeployDiff",
   "description": "Compare local files with deployed remote versions and sync changes in either direction.",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "publisher": "minibear2021",
   "license": "MIT",
   "icon": "media/icon.png",
@@ -115,7 +115,6 @@
         "deploydiff.transport": {
           "type": "string",
           "enum": [
-            "mock",
             "ftp",
             "sftp"
           ],
@@ -155,12 +154,6 @@
               }
             }
           }
-        },
-        "deploydiff.mockRemoteFiles": {
-          "type": "object",
-          "default": {},
-          "scope": "resource",
-          "markdownDescription": "Mock remote file contents keyed by deployed absolute path. Useful while transport integrations are not implemented."
         },
         "deploydiff.ftp.host": {
           "type": "string",

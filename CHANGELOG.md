@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.5
+
+- Remove the mock transport implementation and all related configuration, tests, and generated artifacts.
+- Keep DeployDiff focused on the supported FTP and SFTP transport workflows.
+
 ## 0.1.4
 
 - Add a dedicated `DeployDiff` output channel with detailed command and remote operation logging.

@@ -17,7 +17,6 @@ import { createRemoteFileProvider } from '../../remote/RemoteFileProvider';
 import { detectSyncConflict } from '../../sync/conflictDetection';
 import { DeployDiffExtensionApi } from '../../extension';
 import { DeployDiffLogger, describeError } from '../../logging/outputLogger';
-import { MockRemoteFileProvider } from '../../remote/MockRemoteFileProvider';
 
 function createWorkspaceFolder(fsPath: string): vscode.WorkspaceFolder {
   return {
@@ -152,63 +151,6 @@ suite('Output logger helpers', () => {
   test('formats non-error values safely', () => {
     assert.equal(describeError({ reason: 'bad' }), '{"reason":"bad"}');
     assert.equal(describeError('plain message'), 'plain message');
-  });
-});
-
-suite('Mock remote provider', () => {
-  test('reports file existence from workspace configuration', async () => {
-    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-    assert.ok(workspaceFolder);
-
-    const configuration = vscode.workspace.getConfiguration('deploydiff', workspaceFolder.uri);
-    await configuration.update(
-      'mockRemoteFiles',
-      {
-        '/var/www/app/src/example.ts': 'remote-content'
-      },
-      vscode.ConfigurationTarget.WorkspaceFolder
-    );
-
-    const provider = new MockRemoteFileProvider(workspaceFolder);
-
-    assert.equal(await provider.exists('/var/www/app/src/example.ts'), true);
-    assert.equal(await provider.exists('/var/www/app/src/missing.ts'), false);
-  });
-
-  test('returns byte-size metadata for configured files', async () => {
-    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-    assert.ok(workspaceFolder);
-
-    const provider = new MockRemoteFileProvider(workspaceFolder);
-    const metadata = await provider.stat('/var/www/app/src/example.ts');
-
-    assert.equal(metadata.size, Buffer.byteLength('remote-content', 'utf8'));
-    assert.equal(metadata.modifiedAt, undefined);
-    assert.equal(metadata.type, 'file');
-  });
-
-  test('treats prefixed paths as remote directories and lists their children', async () => {
-    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-    assert.ok(workspaceFolder);
-
-    const configuration = vscode.workspace.getConfiguration('deploydiff', workspaceFolder.uri);
-    await configuration.update(
-      'mockRemoteFiles',
-      {
-        '/var/www/app/src/example.ts': 'remote-content',
-        '/var/www/app/src/features/one.ts': 'one',
-        '/var/www/app/src/features/two.ts': 'two'
-      },
-      vscode.ConfigurationTarget.WorkspaceFolder
-    );
-
-    const provider = new MockRemoteFileProvider(workspaceFolder);
-    const metadata = await provider.stat('/var/www/app/src/features');
-    const entries = await provider.listDirectory('/var/www/app/src/features');
-
-    assert.equal(metadata.type, 'directory');
-    assert.deepEqual(entries.map((entry) => entry.name), ['one.ts', 'two.ts']);
-    assert.ok(entries.every((entry) => entry.type === 'file'));
   });
 });
 

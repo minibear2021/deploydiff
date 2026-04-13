@@ -2313,130 +2313,6 @@ function mapSecurityModeToSecureOption(securityMode) {
   }
 }
 
-// src/remote/MockRemoteFileProvider.ts
-var vscode2 = __toESM(require("vscode"));
-var MockRemoteFileProvider = class {
-  constructor(workspaceFolder, logger) {
-    this.workspaceFolder = workspaceFolder;
-    this.logger = logger;
-  }
-  createDirectory() {
-    return Promise.resolve();
-  }
-  exists(remotePath) {
-    const files = this.getRemoteFiles();
-    const normalizedPath = normalizeRemotePath(remotePath);
-    this.logger?.info("Mock remote exists check", {
-      remotePath: normalizedPath
-    });
-    return Promise.resolve(
-      files[normalizedPath] !== void 0 || Object.keys(files).some((key) => key.startsWith(`${normalizedPath}/`))
-    );
-  }
-  listDirectory(remotePath) {
-    const files = this.getRemoteFiles();
-    const normalizedPath = normalizeRemotePath(remotePath);
-    this.logger?.info("Mock remote list directory", {
-      remotePath: normalizedPath
-    });
-    const prefix = normalizedPath === "/" ? "/" : `${normalizedPath}/`;
-    const entries = /* @__PURE__ */ new Map();
-    for (const [filePath, content] of Object.entries(files)) {
-      if (!filePath.startsWith(prefix) || filePath === normalizedPath) {
-        continue;
-      }
-      const remainder = filePath.slice(prefix.length);
-      const [firstSegment, ...rest] = remainder.split("/");
-      if (!firstSegment) {
-        continue;
-      }
-      if (rest.length === 0) {
-        entries.set(firstSegment, {
-          name: firstSegment,
-          type: "file",
-          size: Buffer.byteLength(content, "utf8")
-        });
-        continue;
-      }
-      if (!entries.has(firstSegment)) {
-        entries.set(firstSegment, {
-          name: firstSegment,
-          type: "directory",
-          size: 0
-        });
-      }
-    }
-    return Promise.resolve([...entries.values()].sort((left, right) => left.name.localeCompare(right.name)));
-  }
-  stat(remotePath) {
-    const files = this.getRemoteFiles();
-    const normalizedPath = normalizeRemotePath(remotePath);
-    this.logger?.info("Mock remote stat", {
-      remotePath: normalizedPath
-    });
-    const content = files[normalizedPath];
-    if (content !== void 0) {
-      return Promise.resolve({
-        type: "file",
-        size: Buffer.byteLength(content, "utf8")
-      });
-    }
-    if (Object.keys(files).some((key) => key.startsWith(`${normalizedPath}/`))) {
-      return Promise.resolve({
-        type: "directory",
-        size: 0
-      });
-    }
-    if (normalizedPath === "/" && Object.keys(files).length > 0) {
-      return Promise.resolve({
-        type: "directory",
-        size: 0
-      });
-    }
-    return Promise.reject(
-      new Error(`Mock remote file not found for ${remotePath}. Add deploydiff.mockRemoteFiles in workspace settings.`)
-    );
-  }
-  readFile(remotePath) {
-    const files = this.getRemoteFiles();
-    const normalizedPath = normalizeRemotePath(remotePath);
-    this.logger?.info("Mock remote read file", {
-      remotePath: normalizedPath
-    });
-    const content = files[normalizedPath];
-    if (content === void 0) {
-      return Promise.reject(
-        new Error(`Mock remote file not found for ${remotePath}. Add deploydiff.mockRemoteFiles in workspace settings.`)
-      );
-    }
-    return Promise.resolve(content);
-  }
-  async writeFile(remotePath, content) {
-    const files = this.getRemoteFiles();
-    const normalizedPath = normalizeRemotePath(remotePath);
-    this.logger?.info("Mock remote write file", {
-      remotePath: normalizedPath,
-      size: Buffer.byteLength(content, "utf8")
-    });
-    files[normalizedPath] = content;
-    const configuration = vscode2.workspace.getConfiguration("deploydiff", this.workspaceFolder.uri);
-    await configuration.update("mockRemoteFiles", files, vscode2.ConfigurationTarget.WorkspaceFolder);
-  }
-  getRemoteFiles() {
-    const configuration = vscode2.workspace.getConfiguration("deploydiff", this.workspaceFolder.uri);
-    return {
-      ...configuration.get("mockRemoteFiles", {})
-    };
-  }
-};
-function normalizeRemotePath(remotePath) {
-  const normalizedPath = remotePath.replace(/\/+/g, "/");
-  if (normalizedPath === "/") {
-    return "/";
-  }
-  return normalizedPath.replace(/\/+$/, "");
-}
-
 // src/remote/SftpRemoteFileProvider.ts
 var import_ssh2_sftp_client = __toESM(require("ssh2-sftp-client"));
 var SftpRemoteFileProvider = class {
@@ -2602,14 +2478,21 @@ async function getSftpConnectionOptions(workspaceFolder, secrets) {
 // src/remote/RemoteFileProvider.ts
 async function createRemoteFileProvider(workspaceFolder, secrets, logger) {
   const configuration = vscode4.workspace.getConfiguration("deploydiff", workspaceFolder.uri);
-  const transport = configuration.get("transport", "mock");
+  const transport = configuration.get("transport");
   logger.info("Creating remote file provider", {
     workspaceFolder: workspaceFolder.name,
     transport
   });
+  if (!transport) {
+    throw new DeployDiffError('DeployDiff requires "deploydiff.transport" to be set explicitly. Choose "ftp" or "sftp" in workspace settings.', [
+      {
+        label: "Open Settings",
+        commandId: "workbench.action.openSettings",
+        arguments: ["deploydiff.transport"]
+      }
+    ]);
+  }
   switch (transport) {
-    case "mock":
-      return new MockRemoteFileProvider(workspaceFolder, logger);
     case "ftp":
       return new FtpRemoteFileProvider(await getFtpConnectionOptions(workspaceFolder, secrets), logger);
     case "sftp":
