@@ -2,7 +2,7 @@
   "name": "deploydiff",
   "displayName": "DeployDiff",
   "description": "Compare local files with deployed remote versions and sync changes in either direction.",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "publisher": "minibear2021",
   "license": "MIT",
   "icon": "media/icon.png",

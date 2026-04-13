@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.8
+
+- Update version number.
+
 ## 0.1.6
 
 - Add a **Diff Sessions** sidebar in the Activity Bar that tracks all active "Compare with Deployed Version" sessions.
