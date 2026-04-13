@@ -1,10 +1,15 @@
 import * as vscode from 'vscode';
+import { DeployDiffLogger } from '../logging/outputLogger';
 import { createRemoteDocumentUri, RemoteDiffDocumentProvider } from './remoteDiffDocumentProvider';
 
 export async function openDeployedDiff(
   localFileUri: vscode.Uri,
-  remoteDiffDocumentProvider: RemoteDiffDocumentProvider
+  remoteDiffDocumentProvider: RemoteDiffDocumentProvider,
+  logger: DeployDiffLogger
 ): Promise<void> {
+  logger.info('Opening deployed diff', {
+    localFile: localFileUri.fsPath
+  });
   await remoteDiffDocumentProvider.preload(localFileUri);
   const localDocument = await vscode.workspace.openTextDocument(localFileUri);
   const remoteDocument = await vscode.workspace.openTextDocument(createRemoteDocumentUri(localFileUri));
@@ -17,5 +22,9 @@ export async function openDeployedDiff(
 
   await vscode.commands.executeCommand('vscode.diff', localFileUri, remoteDocument.uri, title, {
     preview: false
+  });
+  logger.info('Deployed diff opened', {
+    localFile: localFileUri.fsPath,
+    title
   });
 }

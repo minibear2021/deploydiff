@@ -9,11 +9,13 @@ import {
   registerClearSftpPasswordCommand,
   registerSetSftpPasswordCommand
 } from './commands/manageSftpPassword';
+import { registerShowOutputCommand } from './commands/showOutput';
 import { registerUploadToRemoteCommand } from './commands/uploadToRemote';
 import {
   DEPLOYDIFF_REMOTE_DOCUMENT_SCHEME,
   RemoteDiffDocumentProvider
 } from './diff/remoteDiffDocumentProvider';
+import { DeployDiffLogger } from './logging/outputLogger';
 import { DeploymentStatusIndicator } from './status/deploymentStatusIndicator';
 import { DiffDirectionIndicator } from './status/diffDirectionIndicator';
 
@@ -22,11 +24,15 @@ export type DeployDiffExtensionApi = {
 };
 
 export function activate(context: vscode.ExtensionContext): DeployDiffExtensionApi {
-  const remoteDiffDocumentProvider = new RemoteDiffDocumentProvider(context.secrets);
+  const logger = new DeployDiffLogger();
+  const remoteDiffDocumentProvider = new RemoteDiffDocumentProvider(context.secrets, logger);
   const deploymentStatusIndicator = new DeploymentStatusIndicator(remoteDiffDocumentProvider);
   const diffDirectionIndicator = new DiffDirectionIndicator();
 
+  logger.info('DeployDiff extension activated');
+
   context.subscriptions.push(
+    logger,
     deploymentStatusIndicator,
     diffDirectionIndicator,
     vscode.window.onDidChangeActiveTextEditor(() => deploymentStatusIndicator.update()),
@@ -43,13 +49,14 @@ export function activate(context: vscode.ExtensionContext): DeployDiffExtensionA
         isReadonly: false
       }
     ),
-    registerCompareWithDeployedCommand(remoteDiffDocumentProvider),
-    registerUploadToRemoteCommand(context, remoteDiffDocumentProvider),
-    registerDownloadFromRemoteCommand(context, remoteDiffDocumentProvider),
-    registerSetFtpPasswordCommand(context),
-    registerClearFtpPasswordCommand(context),
-    registerSetSftpPasswordCommand(context),
-    registerClearSftpPasswordCommand(context)
+    registerCompareWithDeployedCommand(remoteDiffDocumentProvider, logger),
+    registerUploadToRemoteCommand(context, remoteDiffDocumentProvider, logger),
+    registerDownloadFromRemoteCommand(context, remoteDiffDocumentProvider, logger),
+    registerShowOutputCommand(logger),
+    registerSetFtpPasswordCommand(context, logger),
+    registerClearFtpPasswordCommand(context, logger),
+    registerSetSftpPasswordCommand(context, logger),
+    registerClearSftpPasswordCommand(context, logger)
   );
 
   return {

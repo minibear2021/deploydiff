@@ -2,7 +2,7 @@
   "name": "deploydiff",
   "displayName": "DeployDiff",
   "description": "Compare local files with deployed remote versions and sync changes in either direction.",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "publisher": "minibear2021",
   "license": "MIT",
   "icon": "media/icon.png",
@@ -45,6 +45,11 @@
       {
         "command": "deploydiff.downloadFromRemote",
         "title": "Download from Remote",
+        "category": "DeployDiff"
+      },
+      {
+        "command": "deploydiff.showOutput",
+        "title": "Show Output Logs",
         "category": "DeployDiff"
       },
       {
@@ -114,9 +119,8 @@
             "ftp",
             "sftp"
           ],
-          "default": "mock",
           "scope": "resource",
-          "description": "Remote transport implementation used by DeployDiff."
+          "description": "Required. Remote transport implementation used by DeployDiff."
         },
         "deploydiff.confirmSync": {
           "type": "boolean",

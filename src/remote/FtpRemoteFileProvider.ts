@@ -1,21 +1,25 @@
 import { PassThrough, Readable } from 'node:stream';
 import { Client, FileType } from 'basic-ftp';
 import { enterPassiveModeIPv4_forceControlHostIP } from 'basic-ftp/dist/transfer';
+import { DeployDiffLogger } from '../logging/outputLogger';
 import { RemoteDirectoryEntry, RemoteFileMetadata, RemoteFileProvider } from './RemoteFileProvider';
 import { FtpConnectionOptions } from './ftpConfiguration';
 import { getRemoteFileName, getRemoteParentDirectory } from './remotePath';
 
 export class FtpRemoteFileProvider implements RemoteFileProvider {
-  public constructor(private readonly options: FtpConnectionOptions) {}
+  public constructor(
+    private readonly options: FtpConnectionOptions,
+    private readonly logger: DeployDiffLogger
+  ) {}
 
   public async createDirectory(remotePath: string): Promise<void> {
-    await this.withClient(async (client) => {
+    await this.withClient('createDirectory', remotePath, async (client) => {
       await client.ensureDir(remotePath);
     });
   }
 
   public async exists(remotePath: string): Promise<boolean> {
-    return this.withClient(async (client) => {
+    return this.withClient('exists', remotePath, async (client) => {
       const parentDirectory = getRemoteParentDirectory(remotePath);
       const fileName = getRemoteFileName(remotePath);
 
@@ -33,7 +37,7 @@ export class FtpRemoteFileProvider implements RemoteFileProvider {
   }
 
   public async listDirectory(remotePath: string): Promise<RemoteDirectoryEntry[]> {
-    return this.withClient(async (client) => {
+    return this.withClient('listDirectory', remotePath, async (client) => {
       const entries = await client.list(remotePath);
       return entries.map((entry) => ({
         name: entry.name,
@@ -45,7 +49,7 @@ export class FtpRemoteFileProvider implements RemoteFileProvider {
   }
 
   public async stat(remotePath: string): Promise<RemoteFileMetadata> {
-    return this.withClient(async (client) => {
+    return this.withClient('stat', remotePath, async (client) => {
       if (remotePath === '/') {
         return {
           type: 'directory',
@@ -71,7 +75,7 @@ export class FtpRemoteFileProvider implements RemoteFileProvider {
   }
 
   public async readFile(remotePath: string): Promise<string> {
-    return this.withClient(async (client) => {
+    return this.withClient('readFile', remotePath, async (client) => {
       const stream = new PassThrough();
       const chunks: Buffer[] = [];
 
@@ -85,7 +89,7 @@ export class FtpRemoteFileProvider implements RemoteFileProvider {
   }
 
   public async writeFile(remotePath: string, content: string): Promise<void> {
-    await this.withClient(async (client) => {
+    await this.withClient('writeFile', remotePath, async (client) => {
       const parentDirectory = getRemoteParentDirectory(remotePath);
 
       if (parentDirectory !== '/') {
@@ -96,7 +100,11 @@ export class FtpRemoteFileProvider implements RemoteFileProvider {
     });
   }
 
-  private async withClient<T>(operation: (client: Client) => Promise<T>): Promise<T> {
+  private async withClient<T>(
+    operationName: string,
+    remotePath: string,
+    operation: (client: Client) => Promise<T>
+  ): Promise<T> {
     const client = new Client(this.options.timeoutMs);
 
     if (this.options.passiveModeStrategy === 'ignorePasvAddress') {
@@ -104,9 +112,28 @@ export class FtpRemoteFileProvider implements RemoteFileProvider {
     }
 
     try {
+      this.logger.info('FTP operation started', {
+        operation: operationName,
+        remotePath,
+        host: this.options.host,
+        port: this.options.port
+      });
       await client.access(this.options);
-      return await operation(client);
+      const result = await operation(client);
+      this.logger.info('FTP operation completed', {
+        operation: operationName,
+        remotePath,
+        host: this.options.host,
+        port: this.options.port
+      });
+      return result;
     } catch (error) {
+      this.logger.error('FTP operation failed', error, {
+        operation: operationName,
+        remotePath,
+        host: this.options.host,
+        port: this.options.port
+      });
       const message = error instanceof Error ? error.message : 'Unknown FTP error.';
       throw new Error(`DeployDiff FTP operation failed: ${message}`);
     } finally {

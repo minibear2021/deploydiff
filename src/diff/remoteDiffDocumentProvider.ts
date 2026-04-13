@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { resolveDeploymentTarget } from '../config/deploymentConfiguration';
 import { DeployDiffError } from '../errors/DeployDiffError';
+import { DeployDiffLogger } from '../logging/outputLogger';
 import { createRemoteFileProvider, RemoteFileMetadata } from '../remote/RemoteFileProvider';
 
 export const DEPLOYDIFF_REMOTE_DOCUMENT_SCHEME = 'deploydiff-remote';
@@ -31,7 +32,10 @@ export class RemoteDiffDocumentProvider implements vscode.FileSystemProvider {
   private readonly cache = new Map<string, string>();
   private readonly metadataCache = new Map<string, RemoteFileMetadata>();
 
-  public constructor(private readonly secrets: vscode.SecretStorage) {}
+  public constructor(
+    private readonly secrets: vscode.SecretStorage,
+    private readonly logger: DeployDiffLogger
+  ) {}
 
   public readonly onDidChangeFile = this.didChangeFileEmitter.event;
 
@@ -53,6 +57,9 @@ export class RemoteDiffDocumentProvider implements vscode.FileSystemProvider {
   public async readFile(uri: vscode.Uri): Promise<Uint8Array> {
     const cached = this.cache.get(uri.toString());
     if (cached !== undefined) {
+      this.logger.info('Serving deployed document from cache', {
+        remoteDocument: uri.toString()
+      });
       return Buffer.from(cached, 'utf8');
     }
 
@@ -63,8 +70,13 @@ export class RemoteDiffDocumentProvider implements vscode.FileSystemProvider {
   public async writeFile(uri: vscode.Uri, content: Uint8Array): Promise<void> {
     const localFileUri = getLocalFileUriFromRemoteDocumentUri(uri);
     const target = resolveDeploymentTarget(localFileUri);
-    const provider = await createRemoteFileProvider(target.workspaceFolder, this.secrets);
+    const provider = await createRemoteFileProvider(target.workspaceFolder, this.secrets, this.logger);
     const nextContent = Buffer.from(content).toString('utf8');
+
+    this.logger.info('Writing remote diff editor changes', {
+      localFile: localFileUri.fsPath,
+      remotePath: target.remoteFilePath
+    });
 
     await provider.writeFile(target.remoteFilePath, nextContent);
 
@@ -100,6 +112,10 @@ export class RemoteDiffDocumentProvider implements vscode.FileSystemProvider {
     this.cache.delete(remoteUri.toString());
     this.metadataCache.delete(remoteUri.toString());
     this.didChangeFileEmitter.fire([{ type: vscode.FileChangeType.Changed, uri: remoteUri }]);
+    this.logger.info('Cleared deployed document cache', {
+      localFile: localFileUri.fsPath,
+      remoteDocument: remoteUri.toString()
+    });
   }
 
   public dispose(): void {
@@ -119,9 +135,18 @@ export class RemoteDiffDocumentProvider implements vscode.FileSystemProvider {
   private async loadRemoteState(uri: vscode.Uri): Promise<RemoteFileMetadata> {
     const localFileUri = getLocalFileUriFromRemoteDocumentUri(uri);
     const target = resolveDeploymentTarget(localFileUri);
-    const provider = await createRemoteFileProvider(target.workspaceFolder, this.secrets);
+    const provider = await createRemoteFileProvider(target.workspaceFolder, this.secrets, this.logger);
+
+    this.logger.info('Loading deployed file state', {
+      localFile: localFileUri.fsPath,
+      remotePath: target.remoteFilePath
+    });
 
     if (!(await provider.exists(target.remoteFilePath))) {
+      this.logger.warn('Deployed file is missing', {
+        localFile: localFileUri.fsPath,
+        remotePath: target.remoteFilePath
+      });
       throw new DeployDiffError(
         `No deployed file exists at ${target.remoteFilePath}. Upload the local file first to create it.`,
         [
@@ -138,6 +163,12 @@ export class RemoteDiffDocumentProvider implements vscode.FileSystemProvider {
     const content = await provider.readFile(target.remoteFilePath);
     this.cache.set(uri.toString(), content);
     this.metadataCache.set(uri.toString(), metadata);
+    this.logger.info('Loaded deployed file state', {
+      localFile: localFileUri.fsPath,
+      remotePath: target.remoteFilePath,
+      size: metadata.size,
+      type: metadata.type
+    });
     return metadata;
   }
 }

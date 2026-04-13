@@ -14,12 +14,13 @@ Compare local files against deployed remote versions and sync changes in either 
 - **Upload / Download for files and directories** — Explicit one-click sync commands from the explorer or editor context menu with conflict detection. Directory sync works recursively.
 - **FTP and SFTP transports** — FTP supports password auth plus explicit or implicit FTPS options, and SFTP supports password or private-key auth. Passwords are stored in VS Code Secret Storage, never in settings files.
 - **Multiple mappings** — Map several local directories to different remote roots within the same workspace.
-- **Actionable errors** — Missing configuration? Error toasts include quick-fix buttons like "Open Settings" or "Set Password".
+- **Output logging for troubleshooting** — Remote compare/sync operations write detailed diagnostics to the `DeployDiff` output channel, with quick access from error toasts.
+- **Actionable errors** — Missing configuration? Error toasts include quick-fix buttons like "Open Settings", "Set Password", or "Show Logs".
 
 ## Quick Start
 
 1. Install the extension from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=minibear2021.deploydiff).
-2. Open your workspace settings and configure a transport plus one or more deployment mappings.
+2. Open your workspace settings and configure `deploydiff.transport` explicitly, plus one or more deployment mappings.
 
 FTP example:
 
@@ -74,7 +75,8 @@ SFTP example:
 3. For FTP password auth, run **DeployDiff: Set FTP Password**. For SFTP password auth, run **DeployDiff: Set SFTP Password** if you are not using `deploydiff.sftp.privateKeyPath`.
 4. Right-click a file in the Explorer → **Compare with Deployed Version**.
 5. To sync directly, right-click a file or directory and use **Upload to Remote** or **Download from Remote**.
-6. In the diff editor, use the swap button (↔) to flip sides, then **Revert Block** to push changes left or right. The status bar shows the current direction.
+6. If a compare or sync fails, use **DeployDiff: Show Output Logs** or the toast action to inspect the detailed log output.
+7. In the diff editor, use the swap button (↔) to flip sides, then **Revert Block** to push changes left or right. The status bar shows the current direction.
 
 ## Commands
 
@@ -85,6 +87,7 @@ SFTP example:
 | `DeployDiff: Download from Remote` | Pull the remote file or directory to the local workspace |
 | `DeployDiff: Set FTP Password` | Store the FTP password in VS Code Secret Storage |
 | `DeployDiff: Clear FTP Password` | Remove the stored FTP password |
+| `DeployDiff: Show Output Logs` | Open the DeployDiff output channel |
 | `DeployDiff: Set SFTP Password` | Store the SFTP password in VS Code Secret Storage |
 | `DeployDiff: Clear SFTP Password` | Remove the stored SFTP password |
 
@@ -92,7 +95,7 @@ SFTP example:
 
 | Setting | Default | Description |
 |---|---|---|
-| `deploydiff.transport` | `mock` | Transport type: `mock`, `ftp`, or `sftp` |
+| `deploydiff.transport` | Required | Transport type: `mock`, `ftp`, or `sftp`. Must be set explicitly |
 | `deploydiff.mappings` | `[]` | Array of `{ name, localPath, remotePath }` mapping objects |
 | `deploydiff.confirmSync` | `true` | Prompt before overwriting during upload/download |
 | `deploydiff.ftp.host` | `""` | FTP hostname or IP |
@@ -111,6 +114,7 @@ SFTP example:
 - FTP and SFTP passwords are stored in VS Code Secret Storage, never written to settings files.
 - Private key authentication is supported via `deploydiff.sftp.privateKeyPath`.
 - All remote writes require explicit user action — compare is always read-only.
+- When an operation fails, open **DeployDiff: Show Output Logs** to inspect the recorded remote path, command flow, and error details.
 
 FTP notes:
 

@@ -13,8 +13,10 @@ import {
 import { DEPLOYDIFF_FTP_PASSWORD_SECRET_KEY, getFtpConnectionOptions } from '../../remote/ftpConfiguration';
 import { getRemoteParentDirectory, joinRemotePath } from '../../remote/remotePath';
 import { DEPLOYDIFF_SFTP_PASSWORD_SECRET_KEY, getSftpConnectionOptions } from '../../remote/sftpConfiguration';
+import { createRemoteFileProvider } from '../../remote/RemoteFileProvider';
 import { detectSyncConflict } from '../../sync/conflictDetection';
 import { DeployDiffExtensionApi } from '../../extension';
+import { DeployDiffLogger, describeError } from '../../logging/outputLogger';
 import { MockRemoteFileProvider } from '../../remote/MockRemoteFileProvider';
 
 function createWorkspaceFolder(fsPath: string): vscode.WorkspaceFolder {
@@ -140,6 +142,19 @@ suite('Sync conflict detection', () => {
   });
 });
 
+suite('Output logger helpers', () => {
+  test('formats error stacks when available', () => {
+    const error = new Error('boom');
+
+    assert.match(describeError(error), /boom/);
+  });
+
+  test('formats non-error values safely', () => {
+    assert.equal(describeError({ reason: 'bad' }), '{"reason":"bad"}');
+    assert.equal(describeError('plain message'), 'plain message');
+  });
+});
+
 suite('Mock remote provider', () => {
   test('reports file existence from workspace configuration', async () => {
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
@@ -209,10 +224,36 @@ suite('Extension bootstrap', () => {
     assert.ok(commands.includes('deploydiff.compareWithDeployedVersion'));
     assert.ok(commands.includes('deploydiff.uploadToRemote'));
     assert.ok(commands.includes('deploydiff.downloadFromRemote'));
+    assert.ok(commands.includes('deploydiff.showOutput'));
     assert.ok(commands.includes('deploydiff.setFtpPassword'));
     assert.ok(commands.includes('deploydiff.clearFtpPassword'));
     assert.ok(commands.includes('deploydiff.setSftpPassword'));
     assert.ok(commands.includes('deploydiff.clearSftpPassword'));
+  });
+
+  test('requires transport to be configured explicitly', async () => {
+    const extension = vscode.extensions.getExtension('minibear2021.deploydiff');
+    assert.ok(extension);
+
+    const api = (await extension.activate()) as DeployDiffExtensionApi;
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    assert.ok(workspaceFolder);
+
+    const configuration = vscode.workspace.getConfiguration('deploydiff', workspaceFolder.uri);
+    const previousTransport = configuration.inspect<string>('transport')?.workspaceFolderValue;
+    const logger = new DeployDiffLogger();
+
+    try {
+      await configuration.update('transport', undefined, vscode.ConfigurationTarget.WorkspaceFolder);
+
+      await assert.rejects(
+        () => createRemoteFileProvider(workspaceFolder, api.secrets, logger),
+        /requires "deploydiff\.transport" to be set explicitly/i
+      );
+    } finally {
+      await configuration.update('transport', previousTransport, vscode.ConfigurationTarget.WorkspaceFolder);
+      logger.dispose();
+    }
   });
 });
 

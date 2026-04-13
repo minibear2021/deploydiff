@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.4
+
+- Add a dedicated `DeployDiff` output channel with detailed command and remote operation logging.
+- Add `DeployDiff: Show Output Logs` plus a `Show Logs` error action so users can jump straight to diagnostic output.
+- Stop defaulting `deploydiff.transport` to `mock`; the transport must now be set explicitly to avoid accidental mock lookups.
+- Improve missing-transport errors with an `Open Settings` action that jumps to `deploydiff.transport`.
+
 ## 0.1.3
 
 - Add recursive directory upload support for `Upload to Remote` from the Explorer.

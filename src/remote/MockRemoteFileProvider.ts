@@ -1,10 +1,14 @@
 import * as vscode from 'vscode';
+import { DeployDiffLogger } from '../logging/outputLogger';
 import { RemoteDirectoryEntry, RemoteFileMetadata, RemoteFileProvider } from './RemoteFileProvider';
 
 type RemoteFileMap = Record<string, string>;
 
 export class MockRemoteFileProvider implements RemoteFileProvider {
-  public constructor(private readonly workspaceFolder: vscode.WorkspaceFolder) {}
+  public constructor(
+    private readonly workspaceFolder: vscode.WorkspaceFolder,
+    private readonly logger?: DeployDiffLogger
+  ) {}
 
   public createDirectory(): Promise<void> {
     return Promise.resolve();
@@ -13,6 +17,9 @@ export class MockRemoteFileProvider implements RemoteFileProvider {
   public exists(remotePath: string): Promise<boolean> {
     const files = this.getRemoteFiles();
     const normalizedPath = normalizeRemotePath(remotePath);
+    this.logger?.info('Mock remote exists check', {
+      remotePath: normalizedPath
+    });
     return Promise.resolve(
       files[normalizedPath] !== undefined || Object.keys(files).some((key) => key.startsWith(`${normalizedPath}/`))
     );
@@ -21,6 +28,9 @@ export class MockRemoteFileProvider implements RemoteFileProvider {
   public listDirectory(remotePath: string): Promise<RemoteDirectoryEntry[]> {
     const files = this.getRemoteFiles();
     const normalizedPath = normalizeRemotePath(remotePath);
+    this.logger?.info('Mock remote list directory', {
+      remotePath: normalizedPath
+    });
     const prefix = normalizedPath === '/' ? '/' : `${normalizedPath}/`;
     const entries = new Map<string, RemoteDirectoryEntry>();
 
@@ -59,6 +69,9 @@ export class MockRemoteFileProvider implements RemoteFileProvider {
   public stat(remotePath: string): Promise<RemoteFileMetadata> {
     const files = this.getRemoteFiles();
     const normalizedPath = normalizeRemotePath(remotePath);
+    this.logger?.info('Mock remote stat', {
+      remotePath: normalizedPath
+    });
     const content = files[normalizedPath];
     if (content !== undefined) {
       return Promise.resolve({
@@ -89,6 +102,9 @@ export class MockRemoteFileProvider implements RemoteFileProvider {
   public readFile(remotePath: string): Promise<string> {
     const files = this.getRemoteFiles();
     const normalizedPath = normalizeRemotePath(remotePath);
+    this.logger?.info('Mock remote read file', {
+      remotePath: normalizedPath
+    });
     const content = files[normalizedPath];
     if (content === undefined) {
       return Promise.reject(
@@ -101,7 +117,12 @@ export class MockRemoteFileProvider implements RemoteFileProvider {
 
   public async writeFile(remotePath: string, content: string): Promise<void> {
     const files = this.getRemoteFiles();
-    files[normalizeRemotePath(remotePath)] = content;
+    const normalizedPath = normalizeRemotePath(remotePath);
+    this.logger?.info('Mock remote write file', {
+      remotePath: normalizedPath,
+      size: Buffer.byteLength(content, 'utf8')
+    });
+    files[normalizedPath] = content;
     const configuration = vscode.workspace.getConfiguration('deploydiff', this.workspaceFolder.uri);
     await configuration.update('mockRemoteFiles', files, vscode.ConfigurationTarget.WorkspaceFolder);
   }

@@ -2018,7 +2018,7 @@ __export(extension_exports, {
   deactivate: () => deactivate
 });
 module.exports = __toCommonJS(extension_exports);
-var vscode16 = __toESM(require("vscode"));
+var vscode17 = __toESM(require("vscode"));
 
 // src/config/deploymentConfiguration.ts
 var path3 = __toESM(require("node:path"));
@@ -2117,16 +2117,17 @@ function joinRemotePath2(remoteRoot, childName) {
 
 // src/remote/FtpRemoteFileProvider.ts
 var FtpRemoteFileProvider = class {
-  constructor(options) {
+  constructor(options, logger) {
     this.options = options;
+    this.logger = logger;
   }
   async createDirectory(remotePath) {
-    await this.withClient(async (client) => {
+    await this.withClient("createDirectory", remotePath, async (client) => {
       await client.ensureDir(remotePath);
     });
   }
   async exists(remotePath) {
-    return this.withClient(async (client) => {
+    return this.withClient("exists", remotePath, async (client) => {
       const parentDirectory = getRemoteParentDirectory(remotePath);
       const fileName = getRemoteFileName(remotePath);
       try {
@@ -2141,7 +2142,7 @@ var FtpRemoteFileProvider = class {
     });
   }
   async listDirectory(remotePath) {
-    return this.withClient(async (client) => {
+    return this.withClient("listDirectory", remotePath, async (client) => {
       const entries = await client.list(remotePath);
       return entries.map((entry) => ({
         name: entry.name,
@@ -2152,7 +2153,7 @@ var FtpRemoteFileProvider = class {
     });
   }
   async stat(remotePath) {
-    return this.withClient(async (client) => {
+    return this.withClient("stat", remotePath, async (client) => {
       if (remotePath === "/") {
         return {
           type: "directory",
@@ -2174,7 +2175,7 @@ var FtpRemoteFileProvider = class {
     });
   }
   async readFile(remotePath) {
-    return this.withClient(async (client) => {
+    return this.withClient("readFile", remotePath, async (client) => {
       const stream = new import_node_stream.PassThrough();
       const chunks = [];
       stream.on("data", (chunk) => {
@@ -2185,7 +2186,7 @@ var FtpRemoteFileProvider = class {
     });
   }
   async writeFile(remotePath, content) {
-    await this.withClient(async (client) => {
+    await this.withClient("writeFile", remotePath, async (client) => {
       const parentDirectory = getRemoteParentDirectory(remotePath);
       if (parentDirectory !== "/") {
         await client.ensureDir(parentDirectory);
@@ -2193,15 +2194,34 @@ var FtpRemoteFileProvider = class {
       await client.uploadFrom(import_node_stream.Readable.from([Buffer.from(content, "utf8")]), remotePath);
     });
   }
-  async withClient(operation) {
+  async withClient(operationName, remotePath, operation) {
     const client = new import_basic_ftp.Client(this.options.timeoutMs);
     if (this.options.passiveModeStrategy === "ignorePasvAddress") {
       client.prepareTransfer = import_transfer.enterPassiveModeIPv4_forceControlHostIP;
     }
     try {
+      this.logger.info("FTP operation started", {
+        operation: operationName,
+        remotePath,
+        host: this.options.host,
+        port: this.options.port
+      });
       await client.access(this.options);
-      return await operation(client);
+      const result = await operation(client);
+      this.logger.info("FTP operation completed", {
+        operation: operationName,
+        remotePath,
+        host: this.options.host,
+        port: this.options.port
+      });
+      return result;
     } catch (error) {
+      this.logger.error("FTP operation failed", error, {
+        operation: operationName,
+        remotePath,
+        host: this.options.host,
+        port: this.options.port
+      });
       const message = error instanceof Error ? error.message : "Unknown FTP error.";
       throw new Error(`DeployDiff FTP operation failed: ${message}`);
     } finally {
@@ -2296,8 +2316,9 @@ function mapSecurityModeToSecureOption(securityMode) {
 // src/remote/MockRemoteFileProvider.ts
 var vscode2 = __toESM(require("vscode"));
 var MockRemoteFileProvider = class {
-  constructor(workspaceFolder) {
+  constructor(workspaceFolder, logger) {
     this.workspaceFolder = workspaceFolder;
+    this.logger = logger;
   }
   createDirectory() {
     return Promise.resolve();
@@ -2305,6 +2326,9 @@ var MockRemoteFileProvider = class {
   exists(remotePath) {
     const files = this.getRemoteFiles();
     const normalizedPath = normalizeRemotePath(remotePath);
+    this.logger?.info("Mock remote exists check", {
+      remotePath: normalizedPath
+    });
     return Promise.resolve(
       files[normalizedPath] !== void 0 || Object.keys(files).some((key) => key.startsWith(`${normalizedPath}/`))
     );
@@ -2312,6 +2336,9 @@ var MockRemoteFileProvider = class {
   listDirectory(remotePath) {
     const files = this.getRemoteFiles();
     const normalizedPath = normalizeRemotePath(remotePath);
+    this.logger?.info("Mock remote list directory", {
+      remotePath: normalizedPath
+    });
     const prefix = normalizedPath === "/" ? "/" : `${normalizedPath}/`;
     const entries = /* @__PURE__ */ new Map();
     for (const [filePath, content] of Object.entries(files)) {
@@ -2344,6 +2371,9 @@ var MockRemoteFileProvider = class {
   stat(remotePath) {
     const files = this.getRemoteFiles();
     const normalizedPath = normalizeRemotePath(remotePath);
+    this.logger?.info("Mock remote stat", {
+      remotePath: normalizedPath
+    });
     const content = files[normalizedPath];
     if (content !== void 0) {
       return Promise.resolve({
@@ -2370,6 +2400,9 @@ var MockRemoteFileProvider = class {
   readFile(remotePath) {
     const files = this.getRemoteFiles();
     const normalizedPath = normalizeRemotePath(remotePath);
+    this.logger?.info("Mock remote read file", {
+      remotePath: normalizedPath
+    });
     const content = files[normalizedPath];
     if (content === void 0) {
       return Promise.reject(
@@ -2380,7 +2413,12 @@ var MockRemoteFileProvider = class {
   }
   async writeFile(remotePath, content) {
     const files = this.getRemoteFiles();
-    files[normalizeRemotePath(remotePath)] = content;
+    const normalizedPath = normalizeRemotePath(remotePath);
+    this.logger?.info("Mock remote write file", {
+      remotePath: normalizedPath,
+      size: Buffer.byteLength(content, "utf8")
+    });
+    files[normalizedPath] = content;
     const configuration = vscode2.workspace.getConfiguration("deploydiff", this.workspaceFolder.uri);
     await configuration.update("mockRemoteFiles", files, vscode2.ConfigurationTarget.WorkspaceFolder);
   }
@@ -2402,19 +2440,20 @@ function normalizeRemotePath(remotePath) {
 // src/remote/SftpRemoteFileProvider.ts
 var import_ssh2_sftp_client = __toESM(require("ssh2-sftp-client"));
 var SftpRemoteFileProvider = class {
-  constructor(options) {
+  constructor(options, logger) {
     this.options = options;
+    this.logger = logger;
   }
   async createDirectory(remotePath) {
-    await this.withClient(async (client) => {
+    await this.withClient("createDirectory", remotePath, async (client) => {
       await client.mkdir(remotePath, true);
     });
   }
   async exists(remotePath) {
-    return this.withClient(async (client) => Boolean(await client.exists(remotePath)));
+    return this.withClient("exists", remotePath, async (client) => Boolean(await client.exists(remotePath)));
   }
   async listDirectory(remotePath) {
-    return this.withClient(async (client) => {
+    return this.withClient("listDirectory", remotePath, async (client) => {
       const entries = await client.list(remotePath);
       return entries.map((entry) => ({
         name: entry.name,
@@ -2425,7 +2464,7 @@ var SftpRemoteFileProvider = class {
     });
   }
   async stat(remotePath) {
-    return this.withClient(async (client) => {
+    return this.withClient("stat", remotePath, async (client) => {
       const stats = await client.stat(remotePath);
       const entryType = await client.exists(remotePath);
       return {
@@ -2436,7 +2475,7 @@ var SftpRemoteFileProvider = class {
     });
   }
   async readFile(remotePath) {
-    return this.withClient(async (client) => {
+    return this.withClient("readFile", remotePath, async (client) => {
       const content = await client.get(remotePath);
       if (typeof content === "string") {
         return content;
@@ -2448,7 +2487,7 @@ var SftpRemoteFileProvider = class {
     });
   }
   async writeFile(remotePath, content) {
-    await this.withClient(async (client) => {
+    await this.withClient("writeFile", remotePath, async (client) => {
       const parentDirectory = getRemoteParentDirectory(remotePath);
       if (parentDirectory !== "/") {
         const parentExists = await client.exists(parentDirectory);
@@ -2459,12 +2498,31 @@ var SftpRemoteFileProvider = class {
       await client.put(Buffer.from(content, "utf8"), remotePath);
     });
   }
-  async withClient(operation) {
+  async withClient(operationName, remotePath, operation) {
     const client = new import_ssh2_sftp_client.default("DeployDiff");
     try {
+      this.logger.info("SFTP operation started", {
+        operation: operationName,
+        remotePath,
+        host: this.options.host,
+        port: this.options.port
+      });
       await client.connect(this.options);
-      return await operation(client);
+      const result = await operation(client);
+      this.logger.info("SFTP operation completed", {
+        operation: operationName,
+        remotePath,
+        host: this.options.host,
+        port: this.options.port
+      });
+      return result;
     } catch (error) {
+      this.logger.error("SFTP operation failed", error, {
+        operation: operationName,
+        remotePath,
+        host: this.options.host,
+        port: this.options.port
+      });
       const message = error instanceof Error ? error.message : "Unknown SFTP error.";
       throw new Error(`DeployDiff SFTP operation failed: ${message}`);
     } finally {
@@ -2542,16 +2600,20 @@ async function getSftpConnectionOptions(workspaceFolder, secrets) {
 }
 
 // src/remote/RemoteFileProvider.ts
-async function createRemoteFileProvider(workspaceFolder, secrets) {
+async function createRemoteFileProvider(workspaceFolder, secrets, logger) {
   const configuration = vscode4.workspace.getConfiguration("deploydiff", workspaceFolder.uri);
   const transport = configuration.get("transport", "mock");
+  logger.info("Creating remote file provider", {
+    workspaceFolder: workspaceFolder.name,
+    transport
+  });
   switch (transport) {
     case "mock":
-      return new MockRemoteFileProvider(workspaceFolder);
+      return new MockRemoteFileProvider(workspaceFolder, logger);
     case "ftp":
-      return new FtpRemoteFileProvider(await getFtpConnectionOptions(workspaceFolder, secrets));
+      return new FtpRemoteFileProvider(await getFtpConnectionOptions(workspaceFolder, secrets), logger);
     case "sftp":
-      return new SftpRemoteFileProvider(await getSftpConnectionOptions(workspaceFolder, secrets));
+      return new SftpRemoteFileProvider(await getSftpConnectionOptions(workspaceFolder, secrets), logger);
     default:
       throw new Error(`Unsupported DeployDiff transport: ${transport}`);
   }
@@ -2577,8 +2639,9 @@ function getLocalFileUriFromRemoteDocumentUri(remoteUri) {
   return vscode5.Uri.parse(localUri);
 }
 var RemoteDiffDocumentProvider = class {
-  constructor(secrets) {
+  constructor(secrets, logger) {
     this.secrets = secrets;
+    this.logger = logger;
   }
   didChangeFileEmitter = new vscode5.EventEmitter();
   cache = /* @__PURE__ */ new Map();
@@ -2599,6 +2662,9 @@ var RemoteDiffDocumentProvider = class {
   async readFile(uri) {
     const cached = this.cache.get(uri.toString());
     if (cached !== void 0) {
+      this.logger.info("Serving deployed document from cache", {
+        remoteDocument: uri.toString()
+      });
       return Buffer.from(cached, "utf8");
     }
     await this.loadRemoteState(uri);
@@ -2607,8 +2673,12 @@ var RemoteDiffDocumentProvider = class {
   async writeFile(uri, content) {
     const localFileUri = getLocalFileUriFromRemoteDocumentUri(uri);
     const target = resolveDeploymentTarget(localFileUri);
-    const provider = await createRemoteFileProvider(target.workspaceFolder, this.secrets);
+    const provider = await createRemoteFileProvider(target.workspaceFolder, this.secrets, this.logger);
     const nextContent = Buffer.from(content).toString("utf8");
+    this.logger.info("Writing remote diff editor changes", {
+      localFile: localFileUri.fsPath,
+      remotePath: target.remoteFilePath
+    });
     await provider.writeFile(target.remoteFilePath, nextContent);
     const metadata = await provider.stat(target.remoteFilePath);
     this.cache.set(uri.toString(), nextContent);
@@ -2636,6 +2706,10 @@ var RemoteDiffDocumentProvider = class {
     this.cache.delete(remoteUri.toString());
     this.metadataCache.delete(remoteUri.toString());
     this.didChangeFileEmitter.fire([{ type: vscode5.FileChangeType.Changed, uri: remoteUri }]);
+    this.logger.info("Cleared deployed document cache", {
+      localFile: localFileUri.fsPath,
+      remoteDocument: remoteUri.toString()
+    });
   }
   dispose() {
     this.cache.clear();
@@ -2651,8 +2725,16 @@ var RemoteDiffDocumentProvider = class {
   async loadRemoteState(uri) {
     const localFileUri = getLocalFileUriFromRemoteDocumentUri(uri);
     const target = resolveDeploymentTarget(localFileUri);
-    const provider = await createRemoteFileProvider(target.workspaceFolder, this.secrets);
+    const provider = await createRemoteFileProvider(target.workspaceFolder, this.secrets, this.logger);
+    this.logger.info("Loading deployed file state", {
+      localFile: localFileUri.fsPath,
+      remotePath: target.remoteFilePath
+    });
     if (!await provider.exists(target.remoteFilePath)) {
+      this.logger.warn("Deployed file is missing", {
+        localFile: localFileUri.fsPath,
+        remotePath: target.remoteFilePath
+      });
       throw new DeployDiffError(
         `No deployed file exists at ${target.remoteFilePath}. Upload the local file first to create it.`,
         [
@@ -2668,6 +2750,12 @@ var RemoteDiffDocumentProvider = class {
     const content = await provider.readFile(target.remoteFilePath);
     this.cache.set(uri.toString(), content);
     this.metadataCache.set(uri.toString(), metadata);
+    this.logger.info("Loaded deployed file state", {
+      localFile: localFileUri.fsPath,
+      remotePath: target.remoteFilePath,
+      size: metadata.size,
+      type: metadata.type
+    });
     return metadata;
   }
 };
@@ -2728,7 +2816,10 @@ function resolveDeploymentTarget(localFileUri) {
 
 // src/diff/openDeployedDiff.ts
 var vscode7 = __toESM(require("vscode"));
-async function openDeployedDiff(localFileUri, remoteDiffDocumentProvider) {
+async function openDeployedDiff(localFileUri, remoteDiffDocumentProvider, logger) {
+  logger.info("Opening deployed diff", {
+    localFile: localFileUri.fsPath
+  });
   await remoteDiffDocumentProvider.preload(localFileUri);
   const localDocument = await vscode7.workspace.openTextDocument(localFileUri);
   const remoteDocument = await vscode7.workspace.openTextDocument(createRemoteDocumentUri(localFileUri));
@@ -2740,35 +2831,58 @@ async function openDeployedDiff(localFileUri, remoteDiffDocumentProvider) {
   await vscode7.commands.executeCommand("vscode.diff", localFileUri, remoteDocument.uri, title, {
     preview: false
   });
+  logger.info("Deployed diff opened", {
+    localFile: localFileUri.fsPath,
+    title
+  });
 }
 
 // src/commands/runDeployCommand.ts
 var vscode8 = __toESM(require("vscode"));
-function registerDeployCommand(commandId, handler) {
+function registerDeployCommand(commandId, logger, handler) {
   return vscode8.commands.registerCommand(commandId, async (resource) => {
+    logger.info("Command started", {
+      commandId,
+      resource: resource?.toString()
+    });
     try {
       await handler(resource);
+      logger.info("Command completed", {
+        commandId,
+        resource: resource?.toString()
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown DeployDiff error.";
+      const userMessage = `${message} See the "DeployDiff" output channel for details.`;
+      logger.error("Command failed", error, {
+        commandId,
+        resource: resource?.toString()
+      });
+      logger.show(false);
       if (isDeployDiffError(error) && error.actions.length > 0) {
         const actionLabels = error.actions.map((action) => action.label);
-        const selectedActionLabel = await vscode8.window.showErrorMessage(message, ...actionLabels);
+        const selectedActionLabel = await vscode8.window.showErrorMessage(userMessage, ...actionLabels);
         const selectedAction = error.actions.find((action) => action.label === selectedActionLabel);
         if (selectedAction) {
+          logger.info("Executing recovery action", {
+            commandId,
+            actionLabel: selectedAction.label,
+            actionCommandId: selectedAction.commandId
+          });
           await vscode8.commands.executeCommand(selectedAction.commandId, ...selectedAction.arguments ?? []);
         }
         return;
       }
-      await vscode8.window.showErrorMessage(message);
+      await vscode8.window.showErrorMessage(userMessage);
     }
   });
 }
 
 // src/commands/compareWithDeployed.ts
-function registerCompareWithDeployedCommand(remoteDiffDocumentProvider) {
-  return registerDeployCommand("deploydiff.compareWithDeployedVersion", async (resource) => {
+function registerCompareWithDeployedCommand(remoteDiffDocumentProvider, logger) {
+  return registerDeployCommand("deploydiff.compareWithDeployedVersion", logger, async (resource) => {
     const localFileUri = getOrResolveResourceUri(resource);
-    await openDeployedDiff(localFileUri, remoteDiffDocumentProvider);
+    await openDeployedDiff(localFileUri, remoteDiffDocumentProvider, logger);
   });
 }
 
@@ -2802,15 +2916,20 @@ async function confirmSyncConflict(direction, conflictMessage, relativePath) {
 }
 
 // src/commands/downloadFromRemote.ts
-function registerDownloadFromRemoteCommand(context, remoteDiffDocumentProvider) {
-  return registerDeployCommand("deploydiff.downloadFromRemote", async (resource) => {
+function registerDownloadFromRemoteCommand(context, remoteDiffDocumentProvider, logger) {
+  return registerDeployCommand("deploydiff.downloadFromRemote", logger, async (resource) => {
     const localFileUri = getOrResolveResourceUri(resource);
     const target = resolveDeploymentTarget(localFileUri);
     const configuration = vscode10.workspace.getConfiguration("deploydiff", target.workspaceFolder.uri);
     const confirmSync = configuration.get("confirmSync", true);
-    const provider = await createRemoteFileProvider(target.workspaceFolder, context.secrets);
+    const provider = await createRemoteFileProvider(target.workspaceFolder, context.secrets, logger);
     const remoteMetadata = await provider.stat(target.remoteFilePath);
     const isDirectory = remoteMetadata.type === "directory";
+    logger.info("Preparing download", {
+      localFile: localFileUri.fsPath,
+      remotePath: target.remoteFilePath,
+      isDirectory
+    });
     if (confirmSync) {
       const answer = await vscode10.window.showWarningMessage(
         isDirectory ? `Replace local directory ${target.relativePath || "."} with the deployed contents from ${target.remoteFilePath}?` : `Replace local file ${target.relativePath} with the deployed version from ${target.mapping.remoteRoot}?`,
@@ -2818,23 +2937,42 @@ function registerDownloadFromRemoteCommand(context, remoteDiffDocumentProvider) 
         "Download"
       );
       if (answer !== "Download") {
+        logger.info("Download cancelled by user", {
+          localFile: localFileUri.fsPath,
+          remotePath: target.remoteFilePath
+        });
         return;
       }
     }
     if (isDirectory) {
       const summary = { filesDownloaded: 0, directoriesCreated: 0 };
-      await downloadDirectoryFromRemote(localFileUri, target.remoteFilePath, provider, summary);
+      await downloadDirectoryFromRemote(localFileUri, target.remoteFilePath, provider, summary, logger);
+      logger.info("Download completed", {
+        localFile: localFileUri.fsPath,
+        remotePath: target.remoteFilePath,
+        filesDownloaded: summary.filesDownloaded,
+        directoriesCreated: summary.directoriesCreated
+      });
       await vscode10.window.showInformationMessage(
         `Downloaded ${summary.filesDownloaded} file(s) from ${target.remoteFilePath} to ${target.relativePath || "."}.`
       );
       return;
     }
-    await downloadFileFromRemote(localFileUri, target.remoteFilePath, provider, target.relativePath);
+    await downloadFileFromRemote(localFileUri, target.remoteFilePath, provider, target.relativePath, logger);
     remoteDiffDocumentProvider.refresh(localFileUri);
+    logger.info("Download completed", {
+      localFile: localFileUri.fsPath,
+      remotePath: target.remoteFilePath,
+      filesDownloaded: 1
+    });
     await vscode10.window.showInformationMessage(`Downloaded ${target.remoteFilePath} to ${target.relativePath}.`);
   });
 }
-async function downloadDirectoryFromRemote(localDirectoryUri, remoteDirectoryPath, provider, summary) {
+async function downloadDirectoryFromRemote(localDirectoryUri, remoteDirectoryPath, provider, summary, logger) {
+  logger.info("Ensuring local directory exists", {
+    localDirectory: localDirectoryUri.fsPath,
+    remotePath: remoteDirectoryPath
+  });
   await vscode10.workspace.fs.createDirectory(localDirectoryUri);
   summary.directoriesCreated += 1;
   const entries = await provider.listDirectory(remoteDirectoryPath);
@@ -2842,14 +2980,14 @@ async function downloadDirectoryFromRemote(localDirectoryUri, remoteDirectoryPat
     const childLocalUri = vscode10.Uri.joinPath(localDirectoryUri, entry.name);
     const childRemotePath = joinRemotePath2(remoteDirectoryPath, entry.name);
     if (entry.type === "directory") {
-      await downloadDirectoryFromRemote(childLocalUri, childRemotePath, provider, summary);
+      await downloadDirectoryFromRemote(childLocalUri, childRemotePath, provider, summary, logger);
       continue;
     }
-    await downloadFileFromRemote(childLocalUri, childRemotePath, provider, entry.name);
+    await downloadFileFromRemote(childLocalUri, childRemotePath, provider, entry.name, logger);
     summary.filesDownloaded += 1;
   }
 }
-async function downloadFileFromRemote(localFileUri, remoteFilePath, provider, label) {
+async function downloadFileFromRemote(localFileUri, remoteFilePath, provider, label, logger) {
   let localStat;
   try {
     localStat = await vscode10.workspace.fs.stat(localFileUri);
@@ -2860,17 +2998,25 @@ async function downloadFileFromRemote(localFileUri, remoteFilePath, provider, la
     const remoteMetadata = await provider.stat(remoteFilePath);
     const conflictMessage = detectSyncConflict("download", new Date(localStat.mtime), remoteMetadata);
     if (conflictMessage && !await confirmSyncConflict("download", conflictMessage, label)) {
+      logger.warn("Download conflict declined by user", {
+        localFile: localFileUri.fsPath,
+        remotePath: remoteFilePath
+      });
       return;
     }
   }
+  logger.info("Downloading file", {
+    localFile: localFileUri.fsPath,
+    remotePath: remoteFilePath
+  });
   const content = await provider.readFile(remoteFilePath);
   await vscode10.workspace.fs.writeFile(localFileUri, Buffer.from(content, "utf8"));
 }
 
 // src/commands/manageFtpPassword.ts
 var vscode11 = __toESM(require("vscode"));
-function registerSetFtpPasswordCommand(context) {
-  return registerDeployCommand("deploydiff.setFtpPassword", async () => {
+function registerSetFtpPasswordCommand(context, logger) {
+  return registerDeployCommand("deploydiff.setFtpPassword", logger, async () => {
     const password = await vscode11.window.showInputBox({
       title: "Set DeployDiff FTP Password",
       prompt: "Password is stored in VS Code Secret Storage for this workspace session profile.",
@@ -2884,8 +3030,8 @@ function registerSetFtpPasswordCommand(context) {
     await vscode11.window.showInformationMessage("DeployDiff FTP password stored in Secret Storage.");
   });
 }
-function registerClearFtpPasswordCommand(context) {
-  return registerDeployCommand("deploydiff.clearFtpPassword", async () => {
+function registerClearFtpPasswordCommand(context, logger) {
+  return registerDeployCommand("deploydiff.clearFtpPassword", logger, async () => {
     await context.secrets.delete(DEPLOYDIFF_FTP_PASSWORD_SECRET_KEY);
     await vscode11.window.showInformationMessage("DeployDiff FTP password cleared from Secret Storage.");
   });
@@ -2893,8 +3039,8 @@ function registerClearFtpPasswordCommand(context) {
 
 // src/commands/manageSftpPassword.ts
 var vscode12 = __toESM(require("vscode"));
-function registerSetSftpPasswordCommand(context) {
-  return registerDeployCommand("deploydiff.setSftpPassword", async () => {
+function registerSetSftpPasswordCommand(context, logger) {
+  return registerDeployCommand("deploydiff.setSftpPassword", logger, async () => {
     const password = await vscode12.window.showInputBox({
       title: "Set DeployDiff SFTP Password",
       prompt: "Password is stored in VS Code Secret Storage for this workspace session profile.",
@@ -2908,8 +3054,8 @@ function registerSetSftpPasswordCommand(context) {
     await vscode12.window.showInformationMessage("DeployDiff SFTP password stored in Secret Storage.");
   });
 }
-function registerClearSftpPasswordCommand(context) {
-  return registerDeployCommand("deploydiff.clearSftpPassword", async () => {
+function registerClearSftpPasswordCommand(context, logger) {
+  return registerDeployCommand("deploydiff.clearSftpPassword", logger, async () => {
     await context.secrets.delete(DEPLOYDIFF_SFTP_PASSWORD_SECRET_KEY);
     await vscode12.window.showInformationMessage("DeployDiff SFTP password cleared from Secret Storage.");
   });
@@ -2917,15 +3063,20 @@ function registerClearSftpPasswordCommand(context) {
 
 // src/commands/uploadToRemote.ts
 var vscode13 = __toESM(require("vscode"));
-function registerUploadToRemoteCommand(context, remoteDiffDocumentProvider) {
-  return registerDeployCommand("deploydiff.uploadToRemote", async (resource) => {
+function registerUploadToRemoteCommand(context, remoteDiffDocumentProvider, logger) {
+  return registerDeployCommand("deploydiff.uploadToRemote", logger, async (resource) => {
     const localFileUri = getOrResolveResourceUri(resource);
     const target = resolveDeploymentTarget(localFileUri);
     const configuration = vscode13.workspace.getConfiguration("deploydiff", target.workspaceFolder.uri);
     const confirmSync = configuration.get("confirmSync", true);
-    const provider = await createRemoteFileProvider(target.workspaceFolder, context.secrets);
+    const provider = await createRemoteFileProvider(target.workspaceFolder, context.secrets, logger);
     const localStat = await vscode13.workspace.fs.stat(localFileUri);
     const isDirectory = (localStat.type & vscode13.FileType.Directory) !== 0;
+    logger.info("Preparing upload", {
+      localFile: localFileUri.fsPath,
+      remotePath: target.remoteFilePath,
+      isDirectory
+    });
     if (confirmSync) {
       const answer = await vscode13.window.showWarningMessage(
         isDirectory ? `Upload directory ${target.relativePath || "."} to ${target.remoteFilePath}?` : `Upload ${target.relativePath} to ${target.mapping.remoteRoot}?`,
@@ -2933,23 +3084,42 @@ function registerUploadToRemoteCommand(context, remoteDiffDocumentProvider) {
         "Upload"
       );
       if (answer !== "Upload") {
+        logger.info("Upload cancelled by user", {
+          localFile: localFileUri.fsPath,
+          remotePath: target.remoteFilePath
+        });
         return;
       }
     }
     if (isDirectory) {
       const summary = { filesUploaded: 0, directoriesCreated: 0 };
-      await uploadDirectoryToRemote(localFileUri, target.remoteFilePath, provider, summary);
+      await uploadDirectoryToRemote(localFileUri, target.remoteFilePath, provider, summary, logger);
+      logger.info("Upload completed", {
+        localFile: localFileUri.fsPath,
+        remotePath: target.remoteFilePath,
+        filesUploaded: summary.filesUploaded,
+        directoriesCreated: summary.directoriesCreated
+      });
       await vscode13.window.showInformationMessage(
         `Uploaded ${summary.filesUploaded} file(s) from ${target.relativePath || "."} to ${target.remoteFilePath}.`
       );
       return;
     }
-    await uploadFileToRemote(localFileUri, target.remoteFilePath, provider, target.relativePath);
+    await uploadFileToRemote(localFileUri, target.remoteFilePath, provider, target.relativePath, logger);
     remoteDiffDocumentProvider.refresh(localFileUri);
+    logger.info("Upload completed", {
+      localFile: localFileUri.fsPath,
+      remotePath: target.remoteFilePath,
+      filesUploaded: 1
+    });
     await vscode13.window.showInformationMessage(`Uploaded ${target.relativePath} to ${target.remoteFilePath}.`);
   });
 }
-async function uploadDirectoryToRemote(localDirectoryUri, remoteDirectoryPath, provider, summary) {
+async function uploadDirectoryToRemote(localDirectoryUri, remoteDirectoryPath, provider, summary, logger) {
+  logger.info("Ensuring remote directory exists", {
+    localDirectory: localDirectoryUri.fsPath,
+    remotePath: remoteDirectoryPath
+  });
   await provider.createDirectory(remoteDirectoryPath);
   summary.directoriesCreated += 1;
   const entries = await vscode13.workspace.fs.readDirectory(localDirectoryUri);
@@ -2957,33 +3127,130 @@ async function uploadDirectoryToRemote(localDirectoryUri, remoteDirectoryPath, p
     const childLocalUri = vscode13.Uri.joinPath(localDirectoryUri, name);
     const childRemotePath = joinRemotePath2(remoteDirectoryPath, name);
     if ((type & vscode13.FileType.Directory) !== 0) {
-      await uploadDirectoryToRemote(childLocalUri, childRemotePath, provider, summary);
+      await uploadDirectoryToRemote(childLocalUri, childRemotePath, provider, summary, logger);
       continue;
     }
     if ((type & vscode13.FileType.File) !== 0) {
-      await uploadFileToRemote(childLocalUri, childRemotePath, provider, childLocalUri.path.split("/").pop() ?? name);
+      await uploadFileToRemote(
+        childLocalUri,
+        childRemotePath,
+        provider,
+        childLocalUri.path.split("/").pop() ?? name,
+        logger
+      );
       summary.filesUploaded += 1;
       continue;
     }
     throw new Error(`DeployDiff cannot upload unsupported directory entry ${name}.`);
   }
 }
-async function uploadFileToRemote(localFileUri, remoteFilePath, provider, label) {
+async function uploadFileToRemote(localFileUri, remoteFilePath, provider, label, logger) {
   const localStat = await vscode13.workspace.fs.stat(localFileUri);
   if (await provider.exists(remoteFilePath)) {
     const remoteMetadata = await provider.stat(remoteFilePath);
     const conflictMessage = detectSyncConflict("upload", new Date(localStat.mtime), remoteMetadata);
     if (conflictMessage && !await confirmSyncConflict("upload", conflictMessage, label)) {
+      logger.warn("Upload conflict declined by user", {
+        localFile: localFileUri.fsPath,
+        remotePath: remoteFilePath
+      });
       return;
     }
   }
+  logger.info("Uploading file", {
+    localFile: localFileUri.fsPath,
+    remotePath: remoteFilePath
+  });
   const contentBytes = await vscode13.workspace.fs.readFile(localFileUri);
   const content = Buffer.from(contentBytes).toString("utf8");
   await provider.writeFile(remoteFilePath, content);
 }
 
-// src/status/deploymentStatusIndicator.ts
+// src/logging/outputLogger.ts
 var vscode14 = __toESM(require("vscode"));
+function describeError(error) {
+  if (error instanceof Error) {
+    return error.stack ?? `${error.name}: ${error.message}`;
+  }
+  if (typeof error === "string") {
+    return error;
+  }
+  if (typeof error === "number" || typeof error === "boolean" || typeof error === "bigint" || typeof error === "symbol" || error === null || error === void 0) {
+    return String(error);
+  }
+  if (typeof error === "function") {
+    return `[Function ${error.name || "anonymous"}]`;
+  }
+  try {
+    return JSON.stringify(error) ?? Object.prototype.toString.call(error);
+  } catch {
+    return Object.prototype.toString.call(error);
+  }
+}
+function formatContextValue(value) {
+  if (value instanceof vscode14.Uri) {
+    return value.toString();
+  }
+  if (value instanceof Error) {
+    return value.message;
+  }
+  if (typeof value === "string") {
+    return value;
+  }
+  if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint" || typeof value === "symbol" || value === null || value === void 0) {
+    return String(value);
+  }
+  if (typeof value === "function") {
+    return `[Function ${value.name || "anonymous"}]`;
+  }
+  try {
+    return JSON.stringify(value) ?? Object.prototype.toString.call(value);
+  } catch {
+    return Object.prototype.toString.call(value);
+  }
+}
+function formatLogContext(context) {
+  if (!context || Object.keys(context).length === 0) {
+    return "";
+  }
+  const parts = Object.entries(context).map(([key, value]) => `${key}=${formatContextValue(value)}`);
+  return ` | ${parts.join(", ")}`;
+}
+var DeployDiffLogger = class {
+  outputChannel = vscode14.window.createOutputChannel("DeployDiff");
+  info(message, context) {
+    this.write("INFO", message, context);
+  }
+  warn(message, context) {
+    this.write("WARN", message, context);
+  }
+  error(message, error, context) {
+    this.write("ERROR", message, context);
+    if (error === void 0) {
+      this.show(false);
+      return;
+    }
+    const detailPrefix = `[${(/* @__PURE__ */ new Date()).toISOString()}] [ERROR] `;
+    for (const line of describeError(error).split(/\r?\n/)) {
+      this.outputChannel.appendLine(`${detailPrefix}${line}`);
+    }
+    this.show(false);
+  }
+  show(preserveFocus = false) {
+    this.outputChannel.show(preserveFocus);
+  }
+  dispose() {
+    this.outputChannel.dispose();
+  }
+  write(level, message, context) {
+    this.outputChannel.appendLine(
+      `[${(/* @__PURE__ */ new Date()).toISOString()}] [${level}] ${message}${formatLogContext(context)}`
+    );
+  }
+};
+
+// src/status/deploymentStatusIndicator.ts
+var vscode15 = __toESM(require("vscode"));
 var DeploymentStatusIndicator = class {
   constructor(remoteDiffDocumentProvider) {
     this.remoteDiffDocumentProvider = remoteDiffDocumentProvider;
@@ -2991,9 +3258,9 @@ var DeploymentStatusIndicator = class {
     this.statusBarItem.command = "deploydiff.compareWithDeployedVersion";
     this.update();
   }
-  statusBarItem = vscode14.window.createStatusBarItem(vscode14.StatusBarAlignment.Left, 100);
+  statusBarItem = vscode15.window.createStatusBarItem(vscode15.StatusBarAlignment.Left, 100);
   update() {
-    const activeUri = vscode14.window.activeTextEditor?.document.uri;
+    const activeUri = vscode15.window.activeTextEditor?.document.uri;
     if (!activeUri || activeUri.scheme !== "file" && !isRemoteDocumentUri(activeUri)) {
       this.statusBarItem.hide();
       return;
@@ -3017,15 +3284,15 @@ ${metadataLine}`;
 };
 
 // src/status/diffDirectionIndicator.ts
-var vscode15 = __toESM(require("vscode"));
+var vscode16 = __toESM(require("vscode"));
 var DiffDirectionIndicator = class {
-  statusBarItem = vscode15.window.createStatusBarItem(vscode15.StatusBarAlignment.Left, 99);
+  statusBarItem = vscode16.window.createStatusBarItem(vscode16.StatusBarAlignment.Left, 99);
   disposables = [];
   constructor() {
     this.statusBarItem.name = "DeployDiff Direction";
     this.disposables.push(
-      vscode15.window.tabGroups.onDidChangeTabs(() => this.update()),
-      vscode15.window.onDidChangeActiveTextEditor(() => this.update())
+      vscode16.window.tabGroups.onDidChangeTabs(() => this.update()),
+      vscode16.window.onDidChangeActiveTextEditor(() => this.update())
     );
     this.update();
   }
@@ -3044,8 +3311,8 @@ Revert Block pushes right \u2192 left (${rightRole} \u2192 ${leftRole})`;
     this.statusBarItem.show();
   }
   getActiveDiffInput() {
-    const activeTab = vscode15.window.tabGroups.activeTabGroup.activeTab;
-    if (!activeTab || !(activeTab.input instanceof vscode15.TabInputTextDiff)) {
+    const activeTab = vscode16.window.tabGroups.activeTabGroup.activeTab;
+    if (!activeTab || !(activeTab.input instanceof vscode16.TabInputTextDiff)) {
       return void 0;
     }
     const input = activeTab.input;
@@ -3064,19 +3331,22 @@ Revert Block pushes right \u2192 left (${rightRole} \u2192 ${leftRole})`;
 
 // src/extension.ts
 function activate(context) {
-  const remoteDiffDocumentProvider = new RemoteDiffDocumentProvider(context.secrets);
+  const logger = new DeployDiffLogger();
+  const remoteDiffDocumentProvider = new RemoteDiffDocumentProvider(context.secrets, logger);
   const deploymentStatusIndicator = new DeploymentStatusIndicator(remoteDiffDocumentProvider);
   const diffDirectionIndicator = new DiffDirectionIndicator();
+  logger.info("DeployDiff extension activated");
   context.subscriptions.push(
+    logger,
     deploymentStatusIndicator,
     diffDirectionIndicator,
-    vscode16.window.onDidChangeActiveTextEditor(() => deploymentStatusIndicator.update()),
-    vscode16.workspace.onDidChangeConfiguration((event) => {
+    vscode17.window.onDidChangeActiveTextEditor(() => deploymentStatusIndicator.update()),
+    vscode17.workspace.onDidChangeConfiguration((event) => {
       if (event.affectsConfiguration("deploydiff")) {
         deploymentStatusIndicator.update();
       }
     }),
-    vscode16.workspace.registerFileSystemProvider(
+    vscode17.workspace.registerFileSystemProvider(
       DEPLOYDIFF_REMOTE_DOCUMENT_SCHEME,
       remoteDiffDocumentProvider,
       {
@@ -3084,13 +3354,13 @@ function activate(context) {
         isReadonly: false
       }
     ),
-    registerCompareWithDeployedCommand(remoteDiffDocumentProvider),
-    registerUploadToRemoteCommand(context, remoteDiffDocumentProvider),
-    registerDownloadFromRemoteCommand(context, remoteDiffDocumentProvider),
-    registerSetFtpPasswordCommand(context),
-    registerClearFtpPasswordCommand(context),
-    registerSetSftpPasswordCommand(context),
-    registerClearSftpPasswordCommand(context)
+    registerCompareWithDeployedCommand(remoteDiffDocumentProvider, logger),
+    registerUploadToRemoteCommand(context, remoteDiffDocumentProvider, logger),
+    registerDownloadFromRemoteCommand(context, remoteDiffDocumentProvider, logger),
+    registerSetFtpPasswordCommand(context, logger),
+    registerClearFtpPasswordCommand(context, logger),
+    registerSetSftpPasswordCommand(context, logger),
+    registerClearSftpPasswordCommand(context, logger)
   );
   return {
     secrets: context.secrets
