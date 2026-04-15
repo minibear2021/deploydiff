@@ -3360,6 +3360,7 @@ var DiffSessionManager = class {
 var vscode18 = __toESM(require("vscode"));
 var OPEN_DIFF_SESSION_COMMAND_ID = "deploydiff.openDiffSession";
 function getSessionDirectionLabel(session) {
+  let originalIsLocal = true;
   for (const group of vscode18.window.tabGroups.all) {
     for (const tab of group.tabs) {
       if (tab.input instanceof vscode18.TabInputTextDiff) {
@@ -3367,18 +3368,25 @@ function getSessionDirectionLabel(session) {
         const matchesSession = input.original.toString() === session.localUri.toString() && input.modified.toString() === session.remoteUri.toString();
         const matchesSwapped = input.original.toString() === session.remoteUri.toString() && input.modified.toString() === session.localUri.toString();
         if (matchesSession || matchesSwapped) {
-          const originalIsLocal = input.original.toString() === session.localUri.toString();
-          return originalIsLocal ? "(local \u2194 remote)" : "(remote \u2194 local)";
+          originalIsLocal = input.original.toString() === session.localUri.toString();
+          break;
         }
       }
     }
   }
-  return "(local \u2194 remote)";
+  const localDoc = vscode18.workspace.textDocuments.find(
+    (doc) => doc.uri.toString() === session.localUri.toString()
+  );
+  const remoteDoc = vscode18.workspace.textDocuments.find(
+    (doc) => doc.uri.toString() === session.remoteUri.toString()
+  );
+  const localDirty = localDoc?.isDirty ? "*" : "";
+  const remoteDirty = remoteDoc?.isDirty ? "*" : "";
+  return originalIsLocal ? `(local${localDirty} \u2194 remote${remoteDirty})` : `(remote${remoteDirty} \u2194 local${localDirty})`;
 }
-var DiffSessionTreeItem = class _DiffSessionTreeItem extends vscode18.TreeItem {
+var DiffSessionTreeItem = class extends vscode18.TreeItem {
   constructor(session) {
     const fileName = session.localUri.path.split("/").pop() ?? session.localUri.toString();
-    const isDirty = _DiffSessionTreeItem.isSessionDirty(session);
     super(fileName, vscode18.TreeItemCollapsibleState.None);
     this.session = session;
     const directionLabel = getSessionDirectionLabel(session);
@@ -3391,18 +3399,6 @@ var DiffSessionTreeItem = class _DiffSessionTreeItem extends vscode18.TreeItem {
       title: "Open Diff Session",
       arguments: [session.localUri]
     };
-    if (isDirty) {
-      this.label = `${fileName} *`;
-    }
-  }
-  static isSessionDirty(session) {
-    const localDoc = vscode18.workspace.textDocuments.find(
-      (doc) => doc.uri.toString() === session.localUri.toString()
-    );
-    const remoteDoc = vscode18.workspace.textDocuments.find(
-      (doc) => doc.uri.toString() === session.remoteUri.toString()
-    );
-    return Boolean(localDoc?.isDirty || remoteDoc?.isDirty);
   }
 };
 var DeployDiffSidebarProvider = class {

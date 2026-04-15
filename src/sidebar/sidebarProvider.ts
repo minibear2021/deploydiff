@@ -5,6 +5,7 @@ import { DiffSessionManager } from './diffSessionManager';
 export const OPEN_DIFF_SESSION_COMMAND_ID = 'deploydiff.openDiffSession';
 
 function getSessionDirectionLabel(session: DiffSession): string {
+  let originalIsLocal = true;
   for (const group of vscode.window.tabGroups.all) {
     for (const tab of group.tabs) {
       if (tab.input instanceof vscode.TabInputTextDiff) {
@@ -16,19 +17,30 @@ function getSessionDirectionLabel(session: DiffSession): string {
           input.original.toString() === session.remoteUri.toString() &&
           input.modified.toString() === session.localUri.toString();
         if (matchesSession || matchesSwapped) {
-          const originalIsLocal = input.original.toString() === session.localUri.toString();
-          return originalIsLocal ? '(local ↔ remote)' : '(remote ↔ local)';
+          originalIsLocal = input.original.toString() === session.localUri.toString();
+          break;
         }
       }
     }
   }
-  return '(local ↔ remote)';
+
+  const localDoc = vscode.workspace.textDocuments.find(
+    (doc) => doc.uri.toString() === session.localUri.toString()
+  );
+  const remoteDoc = vscode.workspace.textDocuments.find(
+    (doc) => doc.uri.toString() === session.remoteUri.toString()
+  );
+  const localDirty = localDoc?.isDirty ? '*' : '';
+  const remoteDirty = remoteDoc?.isDirty ? '*' : '';
+
+  return originalIsLocal
+    ? `(local${localDirty} ↔ remote${remoteDirty})`
+    : `(remote${remoteDirty} ↔ local${localDirty})`;
 }
 
 export class DiffSessionTreeItem extends vscode.TreeItem {
   public constructor(public readonly session: DiffSession) {
     const fileName = session.localUri.path.split('/').pop() ?? session.localUri.toString();
-    const isDirty = DiffSessionTreeItem.isSessionDirty(session);
     super(fileName, vscode.TreeItemCollapsibleState.None);
 
     const directionLabel = getSessionDirectionLabel(session);
@@ -41,20 +53,6 @@ export class DiffSessionTreeItem extends vscode.TreeItem {
       title: 'Open Diff Session',
       arguments: [session.localUri]
     };
-
-    if (isDirty) {
-      this.label = `${fileName} *`;
-    }
-  }
-
-  private static isSessionDirty(session: DiffSession): boolean {
-    const localDoc = vscode.workspace.textDocuments.find(
-      (doc) => doc.uri.toString() === session.localUri.toString()
-    );
-    const remoteDoc = vscode.workspace.textDocuments.find(
-      (doc) => doc.uri.toString() === session.remoteUri.toString()
-    );
-    return Boolean(localDoc?.isDirty || remoteDoc?.isDirty);
   }
 }
 
