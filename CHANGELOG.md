@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.0
+
+- Support dropping a directory recursively compares all files inside it.
+
 ## 0.1.9
 
 - Move the **Diff Sessions** view from the Activity Bar into the **File Explorer** sidebar for tighter workspace integration.

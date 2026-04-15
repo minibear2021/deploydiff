@@ -77,7 +77,7 @@ SFTP example:
 3. For FTP password auth, run **DeployDiff: Set FTP Password**. For SFTP password auth, run **DeployDiff: Set SFTP Password** if you are not using `deploydiff.sftp.privateKeyPath`.
 4. Right-click a file in the Explorer → **Compare with Deployed Version**. You can also select multiple files and compare them all at once.
 5. To sync directly, right-click a file or directory and use **Upload to Remote** or **Download from Remote**. Multi-select is supported for both actions.
-6. Look at the **DeployDiff** section at the bottom of the File Explorer to see all active diff sessions, switch between them, or click **Save All** to persist every unsaved change in one go. You can also drag files from the Explorer straight into the DeployDiff list to compare them instantly.
+6. Look at the **DeployDiff** section at the bottom of the File Explorer to see all active diff sessions, switch between them, or click **Save All** to persist every unsaved change in one go. You can also drag files or entire directories from the Explorer straight into the DeployDiff list to compare them instantly — dropping a directory recursively opens every file inside it.
 7. If a compare or sync fails, use **DeployDiff: Show Output Logs** or the toast action to inspect the detailed log output.
 8. In the diff editor, use the swap button (↔) to flip sides, then **Revert Block** to push changes left or right. The status bar shows the current direction.
 

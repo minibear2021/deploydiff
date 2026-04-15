@@ -92,6 +92,33 @@ export class DeployDiffSidebarProvider implements vscode.TreeDataProvider<DiffSe
     this.didChangeTreeDataEmitter.fire();
   }
 
+  private async collectFilesRecursively(uri: vscode.Uri, token: vscode.CancellationToken): Promise<vscode.Uri[]> {
+    const files: vscode.Uri[] = [];
+    try {
+      const stat = await vscode.workspace.fs.stat(uri);
+      if (stat.type === vscode.FileType.File) {
+        files.push(uri);
+      } else if (stat.type === vscode.FileType.Directory || (stat.type as number) === (vscode.FileType.Directory | vscode.FileType.SymbolicLink)) {
+        const entries = await vscode.workspace.fs.readDirectory(uri);
+        for (const [name, type] of entries) {
+          if (token.isCancellationRequested) {
+            break;
+          }
+          const childUri = vscode.Uri.joinPath(uri, name);
+          if (type === vscode.FileType.File) {
+            files.push(childUri);
+          } else if (type === vscode.FileType.Directory || (type as number) === (vscode.FileType.Directory | vscode.FileType.SymbolicLink)) {
+            const nested = await this.collectFilesRecursively(childUri, token);
+            files.push(...nested);
+          }
+        }
+      }
+    } catch {
+      // ignore unreadable paths
+    }
+    return files;
+  }
+
   public async handleDrop(
     _target: DiffSessionTreeItem | undefined,
     dataTransfer: vscode.DataTransfer,
@@ -112,7 +139,13 @@ export class DeployDiffSidebarProvider implements vscode.TreeDataProvider<DiffSe
       try {
         const uri = vscode.Uri.parse(uriString);
         if (uri.scheme === 'file') {
-          await vscode.commands.executeCommand('deploydiff.compareWithDeployedVersion', uri);
+          const files = await this.collectFilesRecursively(uri, token);
+          for (const fileUri of files) {
+            if (token.isCancellationRequested) {
+              break;
+            }
+            await vscode.commands.executeCommand('deploydiff.compareWithDeployedVersion', fileUri);
+          }
         }
       } catch {
         // ignore invalid uris

@@ -408,17 +408,17 @@ var require_FileInfo = __commonJS({
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.FileInfo = exports2.FileType = void 0;
-    var FileType4;
-    (function(FileType5) {
-      FileType5[FileType5["Unknown"] = 0] = "Unknown";
-      FileType5[FileType5["File"] = 1] = "File";
-      FileType5[FileType5["Directory"] = 2] = "Directory";
-      FileType5[FileType5["SymbolicLink"] = 3] = "SymbolicLink";
-    })(FileType4 || (exports2.FileType = FileType4 = {}));
+    var FileType5;
+    (function(FileType6) {
+      FileType6[FileType6["Unknown"] = 0] = "Unknown";
+      FileType6[FileType6["File"] = 1] = "File";
+      FileType6[FileType6["Directory"] = 2] = "Directory";
+      FileType6[FileType6["SymbolicLink"] = 3] = "SymbolicLink";
+    })(FileType5 || (exports2.FileType = FileType5 = {}));
     var FileInfo = class {
       constructor(name) {
         this.name = name;
-        this.type = FileType4.Unknown;
+        this.type = FileType5.Unknown;
         this.size = 0;
         this.rawModifiedAt = "";
         this.modifiedAt = void 0;
@@ -431,13 +431,13 @@ var require_FileInfo = __commonJS({
         this.name = name;
       }
       get isDirectory() {
-        return this.type === FileType4.Directory;
+        return this.type === FileType5.Directory;
       }
       get isSymbolicLink() {
-        return this.type === FileType4.SymbolicLink;
+        return this.type === FileType5.SymbolicLink;
       }
       get isFile() {
-        return this.type === FileType4.File;
+        return this.type === FileType5.File;
       }
       /**
        * Deprecated, legacy API. Use `rawModifiedAt` instead.
@@ -3432,6 +3432,31 @@ var DeployDiffSidebarProvider = class {
   refresh() {
     this.didChangeTreeDataEmitter.fire();
   }
+  async collectFilesRecursively(uri, token) {
+    const files = [];
+    try {
+      const stat = await vscode18.workspace.fs.stat(uri);
+      if (stat.type === vscode18.FileType.File) {
+        files.push(uri);
+      } else if (stat.type === vscode18.FileType.Directory || stat.type === (vscode18.FileType.Directory | vscode18.FileType.SymbolicLink)) {
+        const entries = await vscode18.workspace.fs.readDirectory(uri);
+        for (const [name, type] of entries) {
+          if (token.isCancellationRequested) {
+            break;
+          }
+          const childUri = vscode18.Uri.joinPath(uri, name);
+          if (type === vscode18.FileType.File) {
+            files.push(childUri);
+          } else if (type === vscode18.FileType.Directory || type === (vscode18.FileType.Directory | vscode18.FileType.SymbolicLink)) {
+            const nested = await this.collectFilesRecursively(childUri, token);
+            files.push(...nested);
+          }
+        }
+      }
+    } catch {
+    }
+    return files;
+  }
   async handleDrop(_target, dataTransfer, token) {
     const uriListItem = dataTransfer.get("text/uri-list");
     if (!uriListItem) {
@@ -3446,7 +3471,13 @@ var DeployDiffSidebarProvider = class {
       try {
         const uri = vscode18.Uri.parse(uriString);
         if (uri.scheme === "file") {
-          await vscode18.commands.executeCommand("deploydiff.compareWithDeployedVersion", uri);
+          const files = await this.collectFilesRecursively(uri, token);
+          for (const fileUri of files) {
+            if (token.isCancellationRequested) {
+              break;
+            }
+            await vscode18.commands.executeCommand("deploydiff.compareWithDeployedVersion", fileUri);
+          }
         }
       } catch {
       }
