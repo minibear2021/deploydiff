@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.9
+
+- Move the **Diff Sessions** view from the Activity Bar into the **File Explorer** sidebar for tighter workspace integration.
+- Support dragging files from the Explorer onto the **Diff Sessions** list to open a compare directly.
+- Test runner now uses the locally installed VS Code version instead of pinning an older release.
+
 ## 0.1.8
 
 - Update version number.

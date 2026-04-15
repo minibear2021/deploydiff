@@ -42,7 +42,8 @@ export function activate(context: vscode.ExtensionContext): DeployDiffExtensionA
 
   const sidebarView = vscode.window.createTreeView('deploydiff.diffSessions', {
     treeDataProvider: sidebarProvider,
-    showCollapseAll: false
+    showCollapseAll: false,
+    dragAndDropController: sidebarProvider
   });
 
   context.subscriptions.push(

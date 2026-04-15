@@ -9,7 +9,7 @@ Compare local files against deployed remote versions and sync changes in either 
 ## Features
 
 - **Compare with Deployed Version** — Open VS Code's built-in diff editor to see line-level differences between any local file and its deployed counterpart.
-- **Diff Sessions sidebar** — View all active compares in one place, switch between diffs with a click, and remove sessions when you're done.
+- **Diff Sessions in Explorer** — View all active compares right inside the File Explorer sidebar, switch between diffs with a click, and remove sessions when you're done.
 - **Save All** — Batch-save unsaved changes across every open diff session in one action, for both local and remote documents.
 - **Bidirectional sync** — Swap the diff sides and use VS Code's native Revert Block to push changes in either direction. A status bar indicator always shows which side is local and which is remote.
 - **Writable remote pane** — Edit the remote side directly in the diff editor; saving writes back to the server.
@@ -77,7 +77,7 @@ SFTP example:
 3. For FTP password auth, run **DeployDiff: Set FTP Password**. For SFTP password auth, run **DeployDiff: Set SFTP Password** if you are not using `deploydiff.sftp.privateKeyPath`.
 4. Right-click a file in the Explorer → **Compare with Deployed Version**. You can also select multiple files and compare them all at once.
 5. To sync directly, right-click a file or directory and use **Upload to Remote** or **Download from Remote**. Multi-select is supported for both actions.
-6. Open the **DeployDiff** sidebar to see all active diff sessions, switch between them, or click **Save All** to persist every unsaved change in one go.
+6. Look at the **DeployDiff** section at the bottom of the File Explorer to see all active diff sessions, switch between them, or click **Save All** to persist every unsaved change in one go. You can also drag files from the Explorer straight into the DeployDiff list to compare them instantly.
 7. If a compare or sync fails, use **DeployDiff: Show Output Logs** or the toast action to inspect the detailed log output.
 8. In the diff editor, use the swap button (↔) to flip sides, then **Revert Block** to push changes left or right. The status bar shows the current direction.
 
@@ -93,9 +93,9 @@ SFTP example:
 | `DeployDiff: Show Output Logs` | Open the DeployDiff output channel |
 | `DeployDiff: Set SFTP Password` | Store the SFTP password in VS Code Secret Storage |
 | `DeployDiff: Clear SFTP Password` | Remove the stored SFTP password |
-| `DeployDiff: Open Diff Session` | Reveal a tracked diff session from the sidebar |
+| `DeployDiff: Open Diff Session` | Reveal a tracked diff session from the Explorer panel |
 | `DeployDiff: Save All` | Save all unsaved local and remote changes across tracked diff sessions |
-| `DeployDiff: Remove` | Manually remove a session from the Diff Sessions sidebar |
+| `DeployDiff: Remove` | Manually remove a session from the Diff Sessions list |
 
 ## Configuration
 

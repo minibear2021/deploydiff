@@ -2,8 +2,6 @@ import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { runTests } from '@vscode/test-electron';
 
-const TEST_VSCODE_VERSION = '1.100.0';
-
 async function runExtensionTests(cachePath: string): Promise<void> {
   const extensionDevelopmentPath = path.resolve(__dirname, '../../');
   const extensionTestsPath = path.resolve(__dirname, './suite/index');
@@ -13,8 +11,7 @@ async function runExtensionTests(cachePath: string): Promise<void> {
     cachePath,
     extensionDevelopmentPath,
     extensionTestsPath,
-    launchArgs: [workspacePath],
-    version: TEST_VSCODE_VERSION
+    launchArgs: [workspacePath]
   });
 }
 
@@ -25,7 +22,7 @@ async function main(): Promise<void> {
     await runExtensionTests(cachePath);
   } catch {
     console.warn(
-      `Initial VS Code ${TEST_VSCODE_VERSION} test launch failed. Clearing cached test install and retrying once.`
+      'Initial VS Code test launch failed. Clearing cached test install and retrying once.'
     );
 
     try {

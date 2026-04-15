@@ -3416,6 +3416,8 @@ var DeployDiffSidebarProvider = class {
   textDocumentChangeDisposable;
   tabGroupsChangeDisposable;
   onDidChangeTreeData = this.didChangeTreeDataEmitter.event;
+  dropMimeTypes = ["text/uri-list"];
+  dragMimeTypes = [];
   dispose() {
     this.textDocumentChangeDisposable.dispose();
     this.tabGroupsChangeDisposable.dispose();
@@ -3429,6 +3431,26 @@ var DeployDiffSidebarProvider = class {
   }
   refresh() {
     this.didChangeTreeDataEmitter.fire();
+  }
+  async handleDrop(_target, dataTransfer, token) {
+    const uriListItem = dataTransfer.get("text/uri-list");
+    if (!uriListItem) {
+      return;
+    }
+    const uriListString = await uriListItem.asString();
+    const uriStrings = uriListString.split("\n").map((s) => s.trim()).filter(Boolean);
+    for (const uriString of uriStrings) {
+      if (token.isCancellationRequested) {
+        break;
+      }
+      try {
+        const uri = vscode18.Uri.parse(uriString);
+        if (uri.scheme === "file") {
+          await vscode18.commands.executeCommand("deploydiff.compareWithDeployedVersion", uri);
+        }
+      } catch {
+      }
+    }
   }
 };
 
@@ -3517,7 +3539,8 @@ function activate(context) {
   logger.info("DeployDiff extension activated");
   const sidebarView = vscode20.window.createTreeView("deploydiff.diffSessions", {
     treeDataProvider: sidebarProvider,
-    showCollapseAll: false
+    showCollapseAll: false,
+    dragAndDropController: sidebarProvider
   });
   context.subscriptions.push(
     logger,

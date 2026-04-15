@@ -58,12 +58,14 @@ export class DiffSessionTreeItem extends vscode.TreeItem {
   }
 }
 
-export class DeployDiffSidebarProvider implements vscode.TreeDataProvider<DiffSessionTreeItem>, vscode.Disposable {
+export class DeployDiffSidebarProvider implements vscode.TreeDataProvider<DiffSessionTreeItem>, vscode.TreeDragAndDropController<DiffSessionTreeItem>, vscode.Disposable {
   private readonly didChangeTreeDataEmitter = new vscode.EventEmitter<DiffSessionTreeItem | void>();
   private readonly textDocumentChangeDisposable: vscode.Disposable;
   private readonly tabGroupsChangeDisposable: vscode.Disposable;
 
   public readonly onDidChangeTreeData = this.didChangeTreeDataEmitter.event;
+  public readonly dropMimeTypes = ['text/uri-list'];
+  public readonly dragMimeTypes: string[] = [];
 
   public constructor(private readonly manager: DiffSessionManager) {
     this.manager.onDidChange(() => this.refresh());
@@ -88,5 +90,33 @@ export class DeployDiffSidebarProvider implements vscode.TreeDataProvider<DiffSe
 
   public refresh(): void {
     this.didChangeTreeDataEmitter.fire();
+  }
+
+  public async handleDrop(
+    _target: DiffSessionTreeItem | undefined,
+    dataTransfer: vscode.DataTransfer,
+    token: vscode.CancellationToken
+  ): Promise<void> {
+    const uriListItem = dataTransfer.get('text/uri-list');
+    if (!uriListItem) {
+      return;
+    }
+
+    const uriListString = await uriListItem.asString();
+    const uriStrings = uriListString.split('\n').map((s) => s.trim()).filter(Boolean);
+
+    for (const uriString of uriStrings) {
+      if (token.isCancellationRequested) {
+        break;
+      }
+      try {
+        const uri = vscode.Uri.parse(uriString);
+        if (uri.scheme === 'file') {
+          await vscode.commands.executeCommand('deploydiff.compareWithDeployedVersion', uri);
+        }
+      } catch {
+        // ignore invalid uris
+      }
+    }
   }
 }
