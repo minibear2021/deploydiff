@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.1
+
+- Store FTP and SFTP passwords per workspace instead of globally. Each open workspace now has its own isolated password entry, preventing cross-project password overwrites. Existing passwords are automatically migrated on first use.
+
 ## 1.0.0
 
 - Support dropping a directory recursively compares all files inside it.

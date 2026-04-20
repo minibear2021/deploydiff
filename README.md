@@ -14,7 +14,7 @@ Compare local files against deployed remote versions and sync changes in either 
 - **Bidirectional sync** — Swap the diff sides and use VS Code's native Revert Block to push changes in either direction. A status bar indicator always shows which side is local and which is remote.
 - **Writable remote pane** — Edit the remote side directly in the diff editor; saving writes back to the server.
 - **Upload / Download for files and directories** — Explicit one-click sync commands from the explorer or editor context menu with conflict detection. Directory sync works recursively. Supports multi-select in the Explorer.
-- **FTP and SFTP transports** — FTP supports password auth plus explicit or implicit FTPS options, and SFTP supports password or private-key auth. Passwords are stored in VS Code Secret Storage, never in settings files.
+- **FTP and SFTP transports** — FTP supports password auth plus explicit or implicit FTPS options, and SFTP supports password or private-key auth. Passwords are stored in VS Code Secret Storage per workspace, never in settings files.
 - **Multiple mappings** — Map several local directories to different remote roots within the same workspace.
 - **Output logging for troubleshooting** — Remote compare/sync operations write detailed diagnostics to the `DeployDiff` output channel, with quick access from error toasts.
 - **Actionable errors** — Missing configuration? Error toasts include quick-fix buttons like "Open Settings", "Set Password", or "Show Logs".
@@ -117,7 +117,7 @@ SFTP example:
 
 ## Security
 
-- FTP and SFTP passwords are stored in VS Code Secret Storage, never written to settings files.
+- FTP and SFTP passwords are stored in VS Code Secret Storage per workspace, never written to settings files. Each workspace has its own isolated password entry, so multiple projects never overwrite each other's credentials.
 - Private key authentication is supported via `deploydiff.sftp.privateKeyPath`.
 - All remote writes require explicit user action — compare is always read-only.
 - When an operation fails, open **DeployDiff: Show Output Logs** to inspect the recorded remote path, command flow, and error details.

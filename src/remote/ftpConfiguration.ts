@@ -2,7 +2,29 @@ import * as vscode from 'vscode';
 import { AccessOptions } from 'basic-ftp';
 import { DeployDiffError } from '../errors/DeployDiffError';
 
-export const DEPLOYDIFF_FTP_PASSWORD_SECRET_KEY = 'deploydiff.ftp.password';
+const LEGACY_DEPLOYDIFF_FTP_PASSWORD_SECRET_KEY = 'deploydiff.ftp.password';
+
+export function getFtpPasswordSecretKey(workspaceFolder: vscode.WorkspaceFolder): string {
+  return `deploydiff.ftp.password:${workspaceFolder.uri.toString()}`;
+}
+
+export async function getFtpPassword(
+  secrets: vscode.SecretStorage,
+  workspaceFolder: vscode.WorkspaceFolder
+): Promise<string | undefined> {
+  const key = getFtpPasswordSecretKey(workspaceFolder);
+  let password = await secrets.get(key);
+  if (password !== undefined) {
+    return password;
+  }
+  const legacyPassword = await secrets.get(LEGACY_DEPLOYDIFF_FTP_PASSWORD_SECRET_KEY);
+  if (legacyPassword !== undefined) {
+    await secrets.store(key, legacyPassword);
+    await secrets.delete(LEGACY_DEPLOYDIFF_FTP_PASSWORD_SECRET_KEY);
+    return legacyPassword;
+  }
+  return undefined;
+}
 
 export type FtpSecurityMode = 'off' | 'explicit' | 'implicit';
 export type FtpPassiveModeStrategy = 'default' | 'ignorePasvAddress';
@@ -25,7 +47,7 @@ export async function getFtpConnectionOptions(
   const secure = configuration.get<boolean>('ftp.secure', false);
   const passiveModeStrategy = configuration.get<FtpPassiveModeStrategy>('ftp.passiveModeStrategy', 'default');
   const timeoutMs = configuration.get<number>('ftp.timeoutMs', 10000);
-  const password = await secrets.get(DEPLOYDIFF_FTP_PASSWORD_SECRET_KEY);
+  const password = await getFtpPassword(secrets, workspaceFolder);
 
   if (!host) {
     throw new DeployDiffError('DeployDiff FTP host is not configured. Add deploydiff.ftp.host in workspace settings.', [

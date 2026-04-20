@@ -4,7 +4,29 @@ import * as vscode from 'vscode';
 import SftpClient from 'ssh2-sftp-client';
 import { DeployDiffError } from '../errors/DeployDiffError';
 
-export const DEPLOYDIFF_SFTP_PASSWORD_SECRET_KEY = 'deploydiff.sftp.password';
+const LEGACY_DEPLOYDIFF_SFTP_PASSWORD_SECRET_KEY = 'deploydiff.sftp.password';
+
+export function getSftpPasswordSecretKey(workspaceFolder: vscode.WorkspaceFolder): string {
+  return `deploydiff.sftp.password:${workspaceFolder.uri.toString()}`;
+}
+
+export async function getSftpPassword(
+  secrets: vscode.SecretStorage,
+  workspaceFolder: vscode.WorkspaceFolder
+): Promise<string | undefined> {
+  const key = getSftpPasswordSecretKey(workspaceFolder);
+  let password = await secrets.get(key);
+  if (password !== undefined) {
+    return password;
+  }
+  const legacyPassword = await secrets.get(LEGACY_DEPLOYDIFF_SFTP_PASSWORD_SECRET_KEY);
+  if (legacyPassword !== undefined) {
+    await secrets.store(key, legacyPassword);
+    await secrets.delete(LEGACY_DEPLOYDIFF_SFTP_PASSWORD_SECRET_KEY);
+    return legacyPassword;
+  }
+  return undefined;
+}
 
 export type SftpConnectionOptions = SftpClient.ConnectOptions;
 
@@ -17,7 +39,7 @@ export async function getSftpConnectionOptions(
   const port = configuration.get<number>('sftp.port', 22);
   const username = configuration.get<string>('sftp.username', '').trim();
   const privateKeyPath = configuration.get<string>('sftp.privateKeyPath', '').trim();
-  const password = await secrets.get(DEPLOYDIFF_SFTP_PASSWORD_SECRET_KEY);
+  const password = await getSftpPassword(secrets, workspaceFolder);
 
   if (!host) {
     throw new DeployDiffError('DeployDiff SFTP host is not configured. Add deploydiff.sftp.host in workspace settings.', [

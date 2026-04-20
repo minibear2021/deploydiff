@@ -10,9 +10,9 @@ import {
   getLocalFileUriFromRemoteDocumentUri,
   isRemoteDocumentUri
 } from '../../diff/remoteDiffDocumentProvider';
-import { DEPLOYDIFF_FTP_PASSWORD_SECRET_KEY, getFtpConnectionOptions } from '../../remote/ftpConfiguration';
+import { getFtpConnectionOptions, getFtpPasswordSecretKey } from '../../remote/ftpConfiguration';
 import { getRemoteParentDirectory, joinRemotePath } from '../../remote/remotePath';
-import { DEPLOYDIFF_SFTP_PASSWORD_SECRET_KEY, getSftpConnectionOptions } from '../../remote/sftpConfiguration';
+import { getSftpConnectionOptions, getSftpPasswordSecretKey } from '../../remote/sftpConfiguration';
 import { createRemoteFileProvider } from '../../remote/RemoteFileProvider';
 import { detectSyncConflict } from '../../sync/conflictDetection';
 import { DeployDiffExtensionApi } from '../../extension';
@@ -218,7 +218,7 @@ suite('FTP configuration', () => {
     await configuration.update('ftp.securityMode', 'implicit', vscode.ConfigurationTarget.WorkspaceFolder);
     await configuration.update('ftp.passiveModeStrategy', 'ignorePasvAddress', vscode.ConfigurationTarget.WorkspaceFolder);
     await configuration.update('ftp.timeoutMs', 15000, vscode.ConfigurationTarget.WorkspaceFolder);
-    await api.secrets.store(DEPLOYDIFF_FTP_PASSWORD_SECRET_KEY, 'ftp-secret');
+    await api.secrets.store(getFtpPasswordSecretKey(workspaceFolder), 'ftp-secret');
 
     const options = await getFtpConnectionOptions(workspaceFolder, api.secrets);
 
@@ -231,7 +231,7 @@ suite('FTP configuration', () => {
     assert.equal(options.passiveModeStrategy, 'ignorePasvAddress');
     assert.equal(options.timeoutMs, 15000);
 
-    await api.secrets.delete(DEPLOYDIFF_FTP_PASSWORD_SECRET_KEY);
+    await api.secrets.delete(getFtpPasswordSecretKey(workspaceFolder));
   });
 });
 
@@ -250,7 +250,7 @@ suite('SFTP configuration', () => {
     await configuration.update('sftp.port', 2222, vscode.ConfigurationTarget.WorkspaceFolder);
     await configuration.update('sftp.username', 'deploy', vscode.ConfigurationTarget.WorkspaceFolder);
     await configuration.update('sftp.privateKeyPath', '', vscode.ConfigurationTarget.WorkspaceFolder);
-    await api.secrets.store(DEPLOYDIFF_SFTP_PASSWORD_SECRET_KEY, 'secret');
+    await api.secrets.store(getSftpPasswordSecretKey(workspaceFolder), 'secret');
 
     const options = await getSftpConnectionOptions(workspaceFolder, api.secrets);
 
@@ -259,7 +259,7 @@ suite('SFTP configuration', () => {
     assert.equal(options.username, 'deploy');
     assert.equal(options.password, 'secret');
 
-    await api.secrets.delete(DEPLOYDIFF_SFTP_PASSWORD_SECRET_KEY);
+    await api.secrets.delete(getSftpPasswordSecretKey(workspaceFolder));
   });
 });
 

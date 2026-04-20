@@ -2238,7 +2238,24 @@ function isMissingPathError(error) {
 
 // src/remote/ftpConfiguration.ts
 var vscode = __toESM(require("vscode"));
-var DEPLOYDIFF_FTP_PASSWORD_SECRET_KEY = "deploydiff.ftp.password";
+var LEGACY_DEPLOYDIFF_FTP_PASSWORD_SECRET_KEY = "deploydiff.ftp.password";
+function getFtpPasswordSecretKey(workspaceFolder) {
+  return `deploydiff.ftp.password:${workspaceFolder.uri.toString()}`;
+}
+async function getFtpPassword(secrets, workspaceFolder) {
+  const key = getFtpPasswordSecretKey(workspaceFolder);
+  let password = await secrets.get(key);
+  if (password !== void 0) {
+    return password;
+  }
+  const legacyPassword = await secrets.get(LEGACY_DEPLOYDIFF_FTP_PASSWORD_SECRET_KEY);
+  if (legacyPassword !== void 0) {
+    await secrets.store(key, legacyPassword);
+    await secrets.delete(LEGACY_DEPLOYDIFF_FTP_PASSWORD_SECRET_KEY);
+    return legacyPassword;
+  }
+  return void 0;
+}
 async function getFtpConnectionOptions(workspaceFolder, secrets) {
   const configuration = vscode.workspace.getConfiguration("deploydiff", workspaceFolder.uri);
   const host = configuration.get("ftp.host", "").trim();
@@ -2248,7 +2265,7 @@ async function getFtpConnectionOptions(workspaceFolder, secrets) {
   const secure = configuration.get("ftp.secure", false);
   const passiveModeStrategy = configuration.get("ftp.passiveModeStrategy", "default");
   const timeoutMs = configuration.get("ftp.timeoutMs", 1e4);
-  const password = await secrets.get(DEPLOYDIFF_FTP_PASSWORD_SECRET_KEY);
+  const password = await getFtpPassword(secrets, workspaceFolder);
   if (!host) {
     throw new DeployDiffError("DeployDiff FTP host is not configured. Add deploydiff.ftp.host in workspace settings.", [
       {
@@ -2411,14 +2428,31 @@ var SftpRemoteFileProvider = class {
 var import_promises = require("node:fs/promises");
 var path2 = __toESM(require("node:path"));
 var vscode2 = __toESM(require("vscode"));
-var DEPLOYDIFF_SFTP_PASSWORD_SECRET_KEY = "deploydiff.sftp.password";
+var LEGACY_DEPLOYDIFF_SFTP_PASSWORD_SECRET_KEY = "deploydiff.sftp.password";
+function getSftpPasswordSecretKey(workspaceFolder) {
+  return `deploydiff.sftp.password:${workspaceFolder.uri.toString()}`;
+}
+async function getSftpPassword(secrets, workspaceFolder) {
+  const key = getSftpPasswordSecretKey(workspaceFolder);
+  let password = await secrets.get(key);
+  if (password !== void 0) {
+    return password;
+  }
+  const legacyPassword = await secrets.get(LEGACY_DEPLOYDIFF_SFTP_PASSWORD_SECRET_KEY);
+  if (legacyPassword !== void 0) {
+    await secrets.store(key, legacyPassword);
+    await secrets.delete(LEGACY_DEPLOYDIFF_SFTP_PASSWORD_SECRET_KEY);
+    return legacyPassword;
+  }
+  return void 0;
+}
 async function getSftpConnectionOptions(workspaceFolder, secrets) {
   const configuration = vscode2.workspace.getConfiguration("deploydiff", workspaceFolder.uri);
   const host = configuration.get("sftp.host", "").trim();
   const port = configuration.get("sftp.port", 22);
   const username = configuration.get("sftp.username", "").trim();
   const privateKeyPath = configuration.get("sftp.privateKeyPath", "").trim();
-  const password = await secrets.get(DEPLOYDIFF_SFTP_PASSWORD_SECRET_KEY);
+  const password = await getSftpPassword(secrets, workspaceFolder);
   if (!host) {
     throw new DeployDiffError("DeployDiff SFTP host is not configured. Add deploydiff.sftp.host in workspace settings.", [
       {
@@ -2973,49 +3007,75 @@ async function downloadFileFromRemote(localFileUri, remoteFilePath, provider, la
 
 // src/commands/manageFtpPassword.ts
 var vscode11 = __toESM(require("vscode"));
+function getFirstWorkspaceFolder() {
+  return vscode11.workspace.workspaceFolders?.[0];
+}
 function registerSetFtpPasswordCommand(context, logger) {
   return registerDeployCommand("deploydiff.setFtpPassword", logger, async () => {
+    const workspaceFolder = getFirstWorkspaceFolder();
+    if (!workspaceFolder) {
+      await vscode11.window.showWarningMessage("DeployDiff FTP password must be set within an open workspace.");
+      return;
+    }
     const password = await vscode11.window.showInputBox({
       title: "Set DeployDiff FTP Password",
-      prompt: "Password is stored in VS Code Secret Storage for this workspace session profile.",
+      prompt: "Password is stored in VS Code Secret Storage for this workspace.",
       password: true,
       ignoreFocusOut: true
     });
     if (password === void 0) {
       return;
     }
-    await context.secrets.store(DEPLOYDIFF_FTP_PASSWORD_SECRET_KEY, password);
-    await vscode11.window.showInformationMessage("DeployDiff FTP password stored in Secret Storage.");
+    await context.secrets.store(getFtpPasswordSecretKey(workspaceFolder), password);
+    await vscode11.window.showInformationMessage("DeployDiff FTP password stored in Secret Storage for the current workspace.");
   });
 }
 function registerClearFtpPasswordCommand(context, logger) {
   return registerDeployCommand("deploydiff.clearFtpPassword", logger, async () => {
-    await context.secrets.delete(DEPLOYDIFF_FTP_PASSWORD_SECRET_KEY);
-    await vscode11.window.showInformationMessage("DeployDiff FTP password cleared from Secret Storage.");
+    const workspaceFolder = getFirstWorkspaceFolder();
+    if (!workspaceFolder) {
+      await vscode11.window.showWarningMessage("No open workspace to clear the DeployDiff FTP password from.");
+      return;
+    }
+    await context.secrets.delete(getFtpPasswordSecretKey(workspaceFolder));
+    await vscode11.window.showInformationMessage("DeployDiff FTP password cleared from Secret Storage for the current workspace.");
   });
 }
 
 // src/commands/manageSftpPassword.ts
 var vscode12 = __toESM(require("vscode"));
+function getFirstWorkspaceFolder2() {
+  return vscode12.workspace.workspaceFolders?.[0];
+}
 function registerSetSftpPasswordCommand(context, logger) {
   return registerDeployCommand("deploydiff.setSftpPassword", logger, async () => {
+    const workspaceFolder = getFirstWorkspaceFolder2();
+    if (!workspaceFolder) {
+      await vscode12.window.showWarningMessage("DeployDiff SFTP password must be set within an open workspace.");
+      return;
+    }
     const password = await vscode12.window.showInputBox({
       title: "Set DeployDiff SFTP Password",
-      prompt: "Password is stored in VS Code Secret Storage for this workspace session profile.",
+      prompt: "Password is stored in VS Code Secret Storage for this workspace.",
       password: true,
       ignoreFocusOut: true
     });
     if (password === void 0) {
       return;
     }
-    await context.secrets.store(DEPLOYDIFF_SFTP_PASSWORD_SECRET_KEY, password);
-    await vscode12.window.showInformationMessage("DeployDiff SFTP password stored in Secret Storage.");
+    await context.secrets.store(getSftpPasswordSecretKey(workspaceFolder), password);
+    await vscode12.window.showInformationMessage("DeployDiff SFTP password stored in Secret Storage for the current workspace.");
   });
 }
 function registerClearSftpPasswordCommand(context, logger) {
   return registerDeployCommand("deploydiff.clearSftpPassword", logger, async () => {
-    await context.secrets.delete(DEPLOYDIFF_SFTP_PASSWORD_SECRET_KEY);
-    await vscode12.window.showInformationMessage("DeployDiff SFTP password cleared from Secret Storage.");
+    const workspaceFolder = getFirstWorkspaceFolder2();
+    if (!workspaceFolder) {
+      await vscode12.window.showWarningMessage("No open workspace to clear the DeployDiff SFTP password from.");
+      return;
+    }
+    await context.secrets.delete(getSftpPasswordSecretKey(workspaceFolder));
+    await vscode12.window.showInformationMessage("DeployDiff SFTP password cleared from Secret Storage for the current workspace.");
   });
 }
 
